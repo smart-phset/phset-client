@@ -1,0 +1,135 @@
+[
+ {
+  "id": "s1",
+  "time": "2026-10-10T14:05:11+07:00",
+  "camera": "phone-1",
+  "verdict": "contamination_suspected",
+  "level": "amber",
+  "max_contaminated_conf": 0.74,
+  "n_contaminated": 2,
+  "n_healthy": 0,
+  "width": 720,
+  "height": 1280,
+  "boxes": [
+   {
+    "label": "contaminated",
+    "conf": 0.74,
+    "xyxy": [
+     240,
+     687,
+     479,
+     990
+    ]
+   },
+   {
+    "label": "contaminated",
+    "conf": 0.52,
+    "xyxy": [
+     174,
+     525,
+     363,
+     817
+    ]
+   }
+  ],
+  "file_url": "/mock/bag-amber.jpg",
+  "model_version": "yolov8n-2026-06-20"
+ },
+ {
+  "id": "s2",
+  "time": "2026-10-10T13:40:02+07:00",
+  "camera": "phone-1",
+  "verdict": "no_contamination_seen",
+  "level": "green",
+  "max_contaminated_conf": 0,
+  "n_contaminated": 0,
+  "n_healthy": 4,
+  "width": 1280,
+  "height": 720,
+  "boxes": [
+   {
+    "label": "healthy",
+    "conf": 0.9,
+    "xyxy": [
+     567,
+     392,
+     862,
+     713
+    ]
+   },
+   {
+    "label": "healthy",
+    "conf": 0.89,
+    "xyxy": [
+     197,
+     113,
+     581,
+     387
+    ]
+   },
+   {
+    "label": "healthy",
+    "conf": 0.79,
+    "xyxy": [
+     632,
+     127,
+     907,
+     387
+    ]
+   },
+   {
+    "label": "healthy",
+    "conf": 0.64,
+    "xyxy": [
+     250,
+     407,
+     558,
+     707
+    ]
+   }
+  ],
+  "file_url": "/mock/bag-green.jpg",
+  "model_version": "yolov8n-2026-06-20"
+ },
+ {
+  "id": "s3",
+  "time": "2026-10-10T12:15:47+07:00",
+  "camera": "phone-1",
+  "verdict": "contamination_suspected",
+  "level": "red",
+  "max_contaminated_conf": 0.94,
+  "n_contaminated": 1,
+  "n_healthy": 0,
+  "width": 720,
+  "height": 1280,
+  "boxes": [
+   {
+    "label": "contaminated",
+    "conf": 0.94,
+    "xyxy": [
+     43,
+     250,
+     634,
+     977
+    ]
+   }
+  ],
+  "file_url": "/mock/bag-red.jpg",
+  "model_version": "yolov8n-2026-06-20"
+ },
+ {
+  "id": "s4",
+  "time": "2026-10-10T11:02:09+07:00",
+  "camera": "phone-1",
+  "verdict": "no_detection",
+  "level": "grey",
+  "max_contaminated_conf": 0,
+  "n_contaminated": 0,
+  "n_healthy": 0,
+  "width": 1280,
+  "height": 720,
+  "boxes": [],
+  "file_url": "/mock/bag-none.jpg",
+  "model_version": "yolov8n-2026-06-20"
+ }
+]
