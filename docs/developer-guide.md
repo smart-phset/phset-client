@@ -1,5 +1,10 @@
 # SmartPhset web app: developer guide
 
+**Phase 9 update:** real monitoring/server-side security, exact Spring contracts,
+startup commands and acceptance checks are in [phase9-integration.md](phase9-integration.md).
+Overview/Climate and AI History now use real Spring data with no simulation fallback.
+The older multi-room/demo/Node API descriptions below apply to legacy preview pages.
+
 For Hout (frontend) and the hardware engineer (Node.js backend). It covers how the app is built, how to run and
 change it, how it talks to the laptop, and how it deploys.
 

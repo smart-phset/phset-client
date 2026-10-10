@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { DEFAULT_SETTINGS, DEMO_NOW, INITIAL_ALERTS, INITIAL_READINGS, ROOMS, SCANS, hhmm, levelOf, nowISO, pct, shiftISO } from "./data";
 import type { Alert, Override, Reading, Room, Scan, Settings } from "./types";
 
@@ -64,6 +65,8 @@ function shiftHHMM(hhmmStr: string, deltaMs: number) {
 }
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
+  const path = usePathname();
+  const monitoring = path === "/" || path === "/climate" || path === "/history";
   const [roomId, setRoomId] = useState(ROOMS[0].id);
   const [readings, setReadings] = useState<Record<string, Reading>>(INITIAL_READINGS);
   const [lastUpdate, setLastUpdate] = useState(() => Date.now() - 8000);
@@ -156,6 +159,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Readings: real backend when connected, otherwise a gentle simulation of each room's box.
   useEffect(() => {
+    if (monitoring) return; // Live pages use Spring and must never fall back to demo readings.
     let stop = false;
     async function poll() {
       let any = false;
@@ -214,7 +218,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       stop = true;
       clearInterval(id);
     };
-  }, [log]);
+  }, [log, monitoring]);
 
   const addScan = useCallback((s: Scan) => {
     setScans((xs) => [s, ...xs]);

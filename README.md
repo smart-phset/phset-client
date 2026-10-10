@@ -3,24 +3,32 @@
 The SmartPhset website: AI mould checks and climate control for oyster-mushroom grow rooms. Design from
 Google Stitch ("Calm Field Instrument"), built with Next.js 16, React 19 and Tailwind CSS 3.
 
+**Phase 9:** Overview and Climate now monitor the real Spring IoT API and control
+fan/light/pump outputs through authenticated server routes. Scan History uses real
+persisted AI detections. Setup, exact API contracts and validation commands:
+[Phase 9 integration guide](docs/phase9-integration.md). IoT keys remain server-only;
+guest access is read-only. Soil is unavailable because no sensor is installed.
+
 **Live:** https://smartphset.vercel.app · **Docs:** [docs/README.md](docs/README.md) (user guide, developer guide, API contract).
 **The AI** (`bridge.py` and the trained model) is in a separate repo:
 [SmartPhset-AI](https://github.com/menghoutishere-code/SmartPhset-AI).
 **Working on it?** Read [CONTRIBUTING.md](CONTRIBUTING.md) first (branches, checks, never commit keys).
 
 Visitors start at a sign-in screen: team login (when configured) or **Continue without an account**. The farm has
-**several rooms** (switch in the top bar), and the interface works in **English and Khmer** (Khmer is a draft under review).
+one configured real device on the monitoring pages. Other prototype pages retain
+their room previews. The interface uses **English and Khmer** (new monitoring text
+currently falls back to English; Khmer wording requires review).
 
 ## Pages
 
 | Path | Page |
 |---|---|
-| `/` | Overview: status, live readings, last AI check, alerts |
+| `/` | Real grow-room state, temperature/humidity, actuator controls and latest AI result |
 | `/scan` | AI scan: take or upload a bag photo |
 | `/scan/[id]` | One scan result, with the AI's boxes on the photo |
-| `/history` | All scans, filtered by level |
+| `/history` | Latest 20 real stored detections for the configured camera |
 | `/alerts` | Open and resolved alerts, with details |
-| `/climate` | Readings, targets, manual fan/mister control, activity log |
+| `/climate` | Real device monitoring and fan/light/pump controls |
 | `/status` | System status of every part |
 | `/settings` | Language, alert levels, hardware, about |
 | `/setup` | Camera setup guide |
@@ -34,9 +42,11 @@ npm run dev          # http://localhost:3000
 npm run build        # production build check
 ```
 
-## Demo mode and the real backend
+## Legacy prototype pages
 
-With no `BACKEND_URL`, the site runs in **demo mode**:
+The remaining prototype pages use the older `BACKEND_URL` demo/bridge setup.
+This does not configure Overview, Climate or History; those never fall back to demo
+data. Prototype pages carry a visible preview notice. With no `BACKEND_URL`:
 - The grow box readings are simulated.
 - Scan photos are **real** bag photos with our model's **real** results (`public/mock/`).
 - A new photo shows a saved example, and says so on screen.

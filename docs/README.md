@@ -2,6 +2,7 @@
 
 | Document | For | What it covers |
 |---|---|---|
+| [phase9-integration.md](phase9-integration.md) | Local operators and reviewers | Real Spring contracts, secure proxy, monitoring, controls, startup and browser/hardware acceptance |
 | [user-guide.md](user-guide.md) | Team, demo presenters, farmers | Getting in, every screen, rooms, AI scan, alerts, climate, language, honest limits, a 3-minute demo path |
 | [developer-guide.md](developer-guide.md) | Hout and the engineer | Stack, folder map, login and onboarding, rooms, data and demo simulation, connecting the laptop, Khmer, design rules, deploy, testing, known limits |
 | [api-contract.md](api-contract.md) | The engineer (backend) | Endpoints, data shapes, rooms, alert levels, keys |

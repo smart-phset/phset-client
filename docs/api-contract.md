@@ -1,5 +1,10 @@
 # SmartPhset API contract (draft v0)
 
+**Historical prototype draft.** The real Spring IoT and AI contracts used by
+Overview, Climate and History are audited in [phase9-integration.md](phase9-integration.md).
+They use the server-only SMARTPHSET_* configuration and the IoT key header, not
+the Node endpoints/Bearer token below. This draft applies only to legacy previews.
+
 The agreement between the **frontend** (this repo, Hout) and the **backend** (Node.js REST API on the laptop,
 the engineer). The engineer owns the backend and has the final say on details. Change this file when the API
 changes, and tell the other person.

@@ -132,7 +132,6 @@ export default function ScanPage() {
 
             {preview ? (
               <div className="relative w-full min-h-[380px] flex-1 rounded-xl overflow-hidden bg-inverse-surface shadow-inner flex items-center justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img className="absolute inset-0 w-full h-full object-contain brightness-75" alt={t("Your bag photo")} src={preview} />
                 <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-transparent to-primary/20 pointer-events-none" />
                 <div className="absolute left-0 right-0 h-[2px] bg-secondary-container shadow-[0_0_12px_#ffca42] top-1/2 -translate-y-1/2 pointer-events-none animate-pulse" />
