@@ -1,6 +1,6 @@
 # Contributing
 
-How Hout and the engineer work on this repo. The full technical guide is
+How Hout and the engineer work on this repo. Start with the current [cross-platform setup](README.md). The older technical guide is
 [docs/developer-guide.md](docs/developer-guide.md).
 
 ## Who owns what
@@ -8,8 +8,8 @@ How Hout and the engineer work on this repo. The full technical guide is
 | Area | Owner | Repo |
 |---|---|---|
 | Website, login, Vercel | Hout | this repo |
-| Node REST API, database, ESP32 hardware | Engineer | the backend repo |
-| AI (`bridge.py`, the model) | Hout | [SmartPhset-AI](https://github.com/menghoutishere-code/SmartPhset-AI) |
+| Spring REST API, database, ESP32 hardware | Engineer | the backend repo |
+| AI (`bridge.py`, the model) | Hout | [SmartPhset-AI](https://github.com/smart-phset/phset-ai) |
 | The API contract between them | Both | [docs/api-contract.md](docs/api-contract.md) |
 
 The owner reviews and merges changes in their area. Anything in the API contract needs both of you to agree.
@@ -18,11 +18,11 @@ The owner reviews and merges changes in their area. Anything in the API contract
 
 **Every push to `main` goes live** on https://smartphset.vercel.app. So:
 
-1. Make a branch: `git switch -c fix/short-name` (or `feat/...`, `docs/...`).
+1. Start from the current feature branch named in README.md, then make a branch: `git switch -c fix/short-name` (or `feat/...`, `docs/...`).
 2. Commit and push the branch. Vercel builds a **preview link** for it (shown on the pull request); test there.
    If the link asks for a Vercel login, ask Hout to open it or to add you to the Vercel project.
-3. Open a pull request to `main`, with what changed and how you tested it.
-4. The owner of that area reviews and merges. Small doc fixes can go straight to `main`.
+3. Open a pull request to the agreed integration branch, with what changed and how you tested it.
+4. The owner of that area reviews and merges. Use a feature branch and Pull Request for documentation changes too.
 
 **Before the National Challenge (Oct 23-25, 2026):** from Oct 20, no merges to `main` without both of you saying
 yes. Demo day is not the day to find a broken build.
