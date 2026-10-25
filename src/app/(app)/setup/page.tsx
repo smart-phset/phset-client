@@ -53,7 +53,6 @@ export default async function SetupPage() {
           ].map((c) => (
             <div key={c.tag} className="rounded-xl overflow-hidden bg-surface-container-low flex flex-col">
               <div className="relative aspect-[16/9] bg-surface-container-high">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={c.img} alt="" className="w-full h-full object-cover" />
                 <span className={`absolute top-3 left-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-label-sm text-label-sm font-semibold ${c.tagCls}`}>
                   <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{c.icon}</span>{t(c.tag)}

@@ -1,5 +1,6 @@
 "use client";
 
+import { LiveDetectionPanel } from "@/components/LiveDetectionPanel";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
@@ -28,6 +29,8 @@ async function shrink(file: File, max = 1280): Promise<Blob> {
 }
 
 export default function ScanPage() {
+  // /scan always opens the real Python stream, independently of room/demo state.
+  const [mode, setMode] = useState<"live" | "upload">("live");
   const router = useRouter();
   const { scans, addScan, live, rooms, room, setRoom } = useStore();
   const t = useT();
@@ -90,13 +93,18 @@ export default function ScanPage() {
           <span className="text-on-surface font-semibold">{t("New scan")}</span>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-low text-on-surface text-label-sm font-label-sm shadow-sm">
-          <span className={`w-2 h-2 rounded-full ${live ? "bg-tertiary" : "bg-outline"}`} />
+          <span className={`w-2 h-2 rounded-full ${mode === "live" ? "bg-primary" : live ? "bg-tertiary" : "bg-outline"}`} />
           <span>
-            {t(room.name)} · {live ? t("AI server connected") : t("Demo mode")} · {t("Model")}: <span className="font-mono tracking-tight text-primary">yolov8n-2026-06-20</span>
+            {t(room.name)} · {mode === "live" ? "Live camera" : live ? t("AI server connected") : t("Demo mode")} {mode === "upload" && <>· {t("Model")}: <span className="font-mono tracking-tight text-primary">yolov8n-2026-06-20</span></>}
           </span>
         </div>
       </div>
 
+      <div role="group" aria-label="Detection mode" className="flex gap-2">
+        <button type="button" aria-pressed={mode === "live"} onClick={() => setMode("live")} className={`rounded-lg px-5 py-3 ${mode === "live" ? "bg-primary text-white" : "bg-surface-container-low"}`}>Live Detection</button>
+        <button type="button" aria-pressed={mode === "upload"} onClick={() => setMode("upload")} className={`rounded-lg px-5 py-3 ${mode === "upload" ? "bg-primary text-white" : "bg-surface-container-low"}`}>Upload Image</button>
+      </div>
+      {mode === "live" ? <LiveDetectionPanel /> : <>
       {!live && (
         <div className="flex items-start gap-space-sm bg-surface-container-low rounded-xl p-space-md">
           <span aria-hidden="true" className="material-symbols-outlined text-[20px] text-primary shrink-0">info</span>
@@ -132,7 +140,6 @@ export default function ScanPage() {
 
             {preview ? (
               <div className="relative w-full min-h-[380px] flex-1 rounded-xl overflow-hidden bg-inverse-surface shadow-inner flex items-center justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img className="absolute inset-0 w-full h-full object-contain brightness-75" alt={t("Your bag photo")} src={preview} />
                 <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-transparent to-primary/20 pointer-events-none" />
                 <div className="absolute left-0 right-0 h-[2px] bg-secondary-container shadow-[0_0_12px_#ffca42] top-1/2 -translate-y-1/2 pointer-events-none animate-pulse" />
@@ -197,6 +204,8 @@ export default function ScanPage() {
           </div>
         </section>
       </div>
+
+      </>}
 
       <section className="w-full bg-surface-container-lowest rounded-xl p-space-md md:p-space-lg shadow-sm">
         <div className="flex items-center justify-between mb-space-md">

@@ -34,6 +34,7 @@ function isActive(path: string, href: string) {
 
 export function Sidebar({ user }: { user: SessionUser }) {
   const path = usePathname();
+  const monitoring = path === "/" || path === "/climate" || path === "/history" || path === "/scan";
   const t = useT();
   const { openAlerts } = useStore();
   return (
@@ -55,7 +56,7 @@ export function Sidebar({ user }: { user: SessionUser }) {
                   <span aria-hidden="true" className="material-symbols-outlined text-[20px]">{n.icon}</span>
                   <span>{t(n.label)}</span>
                 </div>
-                {n.href === "/alerts" && openAlerts.length > 0 && (
+                {!monitoring && n.href === "/alerts" && openAlerts.length > 0 && (
                   <span className="bg-error-container text-on-error-container font-label-sm text-label-sm px-1.5 py-0.5 rounded-full">{openAlerts.length}</span>
                 )}
               </Link>
@@ -129,6 +130,8 @@ function RoomPicker() {
 }
 
 export function Topbar({ user }: { user: SessionUser }) {
+  const path = usePathname();
+  const monitoring = path === "/" || path === "/climate" || path === "/history" || path === "/scan";
   const { updatedAgo, reading, live } = useStore();
   const { lang, setLang } = useLang();
   const t = useT();
@@ -139,15 +142,15 @@ export function Topbar({ user }: { user: SessionUser }) {
         <Link href="/" className="lg:hidden flex items-center shrink-0">
           <img alt="SmartPhset" className="h-8 w-8 object-contain" src="/brand/logo-mark.svg" />
         </Link>
-        <RoomPicker />
-        {!live && (
+        {monitoring ? <Link href="/" className="font-label-md text-primary font-semibold">{t("Grow room monitoring")}</Link> : <RoomPicker />}
+        {!monitoring && !live && (
           <span className="hidden md:inline-flex font-label-sm text-label-sm px-2 py-1 rounded bg-surface-container text-on-surface-variant" title={t("No grow room server connected. Readings are simulated and scan photos are real saved examples.")}>
             {t("Demo data")}
           </span>
         )}
       </div>
       <div className="flex items-center gap-space-xs sm:gap-space-sm lg:gap-space-md">
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border border-outline-variant bg-surface">
+        {!monitoring && <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border border-outline-variant bg-surface">
           <span className="relative flex h-2 w-2">
             {!offline && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary-container opacity-75" />}
             <span className={`relative inline-flex rounded-full h-2 w-2 ${offline ? "bg-outline" : "bg-tertiary"}`} />
@@ -155,7 +158,7 @@ export function Topbar({ user }: { user: SessionUser }) {
           <span className="font-label-sm text-label-sm text-on-surface-variant tabular-nums whitespace-nowrap">
             {offline ? t("Room offline") : live ? t("Live · updated {n} s ago", { n: updatedAgo }) : t("Demo · updated {n} s ago", { n: updatedAgo })}
           </span>
-        </div>
+        </div>}
         <div className="flex items-center rounded-lg border border-outline-variant p-0.5 bg-surface" role="group" aria-label="Language">
           {(["en", "km"] as const).map((l, i) => (
             <span key={l} className="flex items-center">
@@ -177,6 +180,7 @@ export function Topbar({ user }: { user: SessionUser }) {
 
 export function MobileNav() {
   const path = usePathname();
+  const monitoring = path === "/" || path === "/climate" || path === "/history" || path === "/scan";
   const t = useT();
   const { openAlerts } = useStore();
   const cls = (href: string) =>
@@ -201,7 +205,7 @@ export function MobileNav() {
         <Link className={`${cls("/alerts")} relative`} href="/alerts">
           <div className="relative flex items-center justify-center">
             <span aria-hidden="true" className="material-symbols-outlined text-[24px]">notifications</span>
-            {openAlerts.length > 0 && (
+            {!monitoring && openAlerts.length > 0 && (
               <span className="absolute -top-1 -right-2 bg-error text-on-error font-label-sm text-[10px] w-4 h-4 rounded-full flex items-center justify-center leading-none">{openAlerts.length}</span>
             )}
           </div>
