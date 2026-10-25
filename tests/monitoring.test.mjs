@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseDeviceState, parseDetection, parseReceipt, freshness, confirmsCommand } from '../src/lib/monitoring.ts';
+import { parseDeviceState, parseDetection, parseReceipt, freshness, confirmsCommand, observeCommand, acceptCommand } from '../src/lib/monitoring.ts';
 import { monitoringHandlers } from '../src/lib/monitoring-proxy.ts';
 import { startMonitoringPoll } from '../src/lib/monitoring-poll.ts';
 import { sign, verify } from '../src/lib/auth.ts';
@@ -167,4 +167,21 @@ test('existing signed session rejects forged team tokens; guest does not become 
       if (saved[key] === undefined) delete process.env[key]; else process.env[key] = saved[key];
     }
   }
+});
+
+test('reports racing acceptance and late reports confirm without changing reported equipment state', () => {
+  const pending = { target: true, sentAt: now + 1000, baselineCaptured: stamp(now), baselineReceived: stamp(now) };
+  const sending = { phase: 'sending', message: 'Sending', pending };
+  const report = { ...state, pump: true, state_captured_at: stamp(now + 2000), state_received_at: stamp(now + 2000) };
+  const receipt = { command_id: 'id', on: true, expires_at: 1800000000 };
+  assert.equal(acceptCommand(sending, receipt).phase, 'accepted');
+  const observed = observeCommand(sending, report, 'pump', now + 3000);
+  assert.equal(observed.phase, 'sending');
+  assert.equal(acceptCommand(observed, receipt).phase, 'confirmed');
+  const late = { ...report, state_captured_at: stamp(now + 25000), state_received_at: stamp(now + 25000) };
+  assert.equal(observeCommand({ ...sending, phase: 'unconfirmed' }, late, 'pump', now + 26000).phase, 'confirmed');
+  assert.equal(observeCommand(sending, state, 'pump', now + 3000), sending);
+  const confirmed = acceptCommand(observed, receipt);
+  assert.equal(observeCommand(confirmed, { ...report, pump: false }, 'pump', now + 4000), confirmed);
+  assert.equal(report.pump, true); // Command tracking never mutates the actual report.
 });

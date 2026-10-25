@@ -151,6 +151,30 @@ export function confirmsCommand(state: DeviceState, actuator: Actuator, pending:
     receive > (timestampMs(pending.baselineReceived) ?? -Infinity);
 }
 
+export interface CommandStatus {
+  phase: "sending" | "accepted" | "confirmed" | "unconfirmed" | "error";
+  message: string;
+  pending: PendingCommand;
+  receipt?: CommandReceipt;
+  reported?: boolean;
+}
+
+// Keep an observed report even when it races the HTTP acceptance response.
+export function observeCommand(command: CommandStatus, state: DeviceState,
+  actuator: Actuator, now: number): CommandStatus {
+  if (!["sending", "accepted", "unconfirmed"].includes(command.phase) ||
+      !confirmsCommand(state, actuator, command.pending, now)) return command;
+  if (command.phase === "sending") return { ...command, reported: true };
+  return { ...command, phase: "confirmed", reported: true,
+    message: "ESP32 reported the requested state." };
+}
+
+export function acceptCommand(command: CommandStatus, receipt: CommandReceipt): CommandStatus {
+  return { ...command, receipt, phase: command.reported ? "confirmed" : "accepted",
+    message: command.reported ? "ESP32 reported the requested state."
+      : "Accepted for MQTT transmission. Waiting for ESP32 state…" };
+}
+
 export async function browserJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(path, { ...init, cache: "no-store", signal: init.signal ?? AbortSignal.timeout(8_000) });
   const value: unknown = await response.json();

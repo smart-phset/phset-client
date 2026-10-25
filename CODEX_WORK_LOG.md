@@ -135,3 +135,54 @@ Final diff/work log reviewed before checkpoint. User explicitly authorized NEW
 commit `feat(client): integrate real grow-room monitoring and actuator control`
 and push `feat/grow-room-monitoring` to origin with upstream tracking. Do not
 amend previous commits or merge to main. Backend/AI/firmware remain unchanged.
+
+## IoT dashboard continuation audit — 2026-10-24
+
+Reconciled requested checkpoints: api/main f66e05d, frontend on
+feat/grow-room-monitoring edb5152, firmware/main bbf860d and AI/feat/live-camera
+c2b8b00. Frontend/backend/firmware initially clean; existing AI log changes and
+untracked acceptance document preserved. No AI/backend/firmware modifications.
+Read frontend Phase 9 log/guide, backend IoT log, controller/entity/DTO contracts,
+authentication and current proxy/dashboard/polling/tests before editing.
+
+Phase 9 already supplies real state/telemetry, authenticated server-only REST
+proxy, guest read-only enforcement, actuator commands, separate AI reads, soil
+masking, error messages, no-overlap polling and pump timeout messaging. Reused all
+of it. Missing edge cases: a report received during the HTTP POST was ignored for
+confirmation, and a report after the 20s waiting window could never clear the
+unconfirmed message. Added pure command observation/acceptance helpers to retain
+reports racing HTTP202 and recognize late matching reports without retries,
+optimistic physical state or changing firmware. Dashboard now labels fresh state
+ONLINE (previously Active). Current ON/OFF still comes only from ESP32 reports;
+confirmation is historical and does not prevent subsequent pump OFF display.
+
+Validation in this sandbox:
+- Installed dependency tree is valid (`npm ls --depth=0`); pinned Next16.3.8 and
+  React19.2.8 present. Preserved working node_modules instead of destructive npm ci;
+  `npm ci --dry-run --offline --ignore-scripts` PASS (planning, not installation).
+- npm run lint PASS; npm run typecheck PASS; npm run test 13/13 PASS.
+- npm run build FAILED: Turbopack CSS process cannot bind a port (Operation not
+  permitted). Additional `npm run build -- --webpack` FAILED: could not parse
+  TypeScript --showConfig output. No production build pass claimed. Run standard
+  build in normal developer terminal before commit.
+- git diff --check PASS. Backend unchanged, no backend tests needed.
+- No real browser/hardware actuation this turn. Await user acceptance below.
+- No commit, push, merge, staging, secret/config edits or private secret reads.
+
+Current acceptance gate: repeat browser/ESP32 checks in docs/phase9-integration.md.
+Previous user-reported Phase 9 acceptance remains historical; this new change has
+NOT received real acceptance. GPIO27/physical relay remain verified; actual water
+pump/load, physical fan/light, soil sensor/calibration/telemetry remain unverified.
+New ONLINE label uses existing translation fallback; Khmer review remains pending.
+Proposed commit: fix(client): confirm racing and late ESP32 actuator reports
+
+
+## Checkpoint verification — 2026-10-25
+
+Current combined frontend tree passes npm run test, lint and typecheck in this
+session. User ran npm run build on the normal machine and reports PASS; this
+supersedes the sandbox port-bind limitation for checkpoint acceptance. User also
+reports physical live frontend/AI pipeline operation. This does not claim model
+accuracy or additional physical actuator acceptance. Private .env.local remains
+ignored. The actuator and live-scan changes separate cleanly by file, so checkpoint
+uses two new commits with no history rewrite. Generated CLAUDE.md is left local.

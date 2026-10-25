@@ -241,3 +241,21 @@ on 2026-10-10. Keep pinned Next 16.3.8/React 19.2.8 and the existing Tailwind 3
 system. Next 16 build does not replace lint; explicit ESLint/typecheck/test scripts
 are added. New dev-only lint tools: ESLint 9.39.5 and typescript-eslint 8.70.0,
 matching the available local tooling; existing dependency versions are preserved.
+
+## Continuation acceptance — 2026-10-24
+
+Frontend checkpoint edb5152 already contains the real dashboard. The continuation
+changes fresh device wording to ONLINE and retains matching ESP32 reports that
+arrive during command submission, with confirmation shown once HTTP202 returns.
+A late matching report can also clear the 20s unconfirmed message. Neither path
+resends commands or changes the current reported ON/OFF value. An old confirmation
+message describes the last command, even when pump safety later reports OFF.
+
+For the current changes, browser + ESP32 acceptance is pending. Historical Phase9
+acceptance above does not certify this working diff. Repeat the manual checklist,
+including normal-terminal npm run build. Sandbox standard build failed because
+Turbopack cannot bind a port; webpack fallback also failed parsing --showConfig.
+Start PostgreSQL first (`docker compose up -d postgres`), then Mosquitto
+(`docker compose up -d mosquitto`), then Spring as above. Power the already-flashed
+regular ESP32 after Spring is ready, then start Next.js and open the browser.
+Do not flash/reconfigure firmware for this frontend change.

@@ -3,15 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useT } from "@/lib/i18n";
-import { ACTUATORS, CONFIRM_MS, POLL_MS, browserJson, confirmsCommand, freshness, MonitoringError,
-  type Actuator, type CommandReceipt, type Detection, type MonitorSnapshot, type PendingCommand } from "@/lib/monitoring";
+import { ACTUATORS, CONFIRM_MS, POLL_MS, browserJson, observeCommand, acceptCommand, freshness, MonitoringError,
+  type Actuator, type CommandReceipt, type CommandStatus, type Detection, type MonitorSnapshot, type PendingCommand } from "@/lib/monitoring";
 import { startMonitoringPoll } from "@/lib/monitoring-poll";
 
-type CommandStatus = { phase: "sending" | "accepted" | "confirmed" | "unconfirmed" | "error";
-  message: string; pending: PendingCommand; receipt?: CommandReceipt };
 type CommandStatuses = Partial<Record<Actuator, CommandStatus>>;
 const actuatorLabels = { fan: "Fan", light: "Light", pump: "Water Pump" };
-const statusLabels = { active: "Active", stale: "Stale", offline: "Offline", unavailable: "Unavailable" };
+const statusLabels = { active: "ONLINE", stale: "STALE", offline: "OFFLINE", unavailable: "Unavailable" };
 const statusIcons = { active: "check_circle", stale: "warning", offline: "cloud_off", unavailable: "cloud_off" };
 const statusStyles = { active: "bg-tertiary-fixed text-tertiary", stale: "bg-secondary-fixed text-on-secondary-fixed",
   offline: "bg-surface-variant text-on-surface-variant", unavailable: "bg-error-container text-on-error-container" };
@@ -47,9 +45,7 @@ export function GrowRoomDashboard({ deviceId, teamAccount }: { deviceId: string;
             const current = { ...commandsRef.current };
             for (const actuator of ACTUATORS) {
               const command = current[actuator];
-              if (command?.phase === "accepted" && confirmsCommand(next.state, actuator, command.pending, Date.now())) {
-                current[actuator] = { ...command, phase: "confirmed", message: "ESP32 reported the requested state." };
-              }
+              if (command) current[actuator] = observeCommand(command, next.state, actuator, Date.now());
             }
             commandsRef.current = current; setCommands(current);
           } catch (error) {
@@ -117,7 +113,7 @@ export function GrowRoomDashboard({ deviceId, teamAccount }: { deviceId: string;
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ on }),
         signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8_000)]),
       });
-      update({ phase: "accepted", message: "Accepted for MQTT transmission. Waiting for ESP32 state…", pending, receipt });
+      update(acceptCommand(commandsRef.current[actuator] ?? { phase: "sending", message: "Sending command…", pending }, receipt));
     } catch (error) {
       update({ phase: "error", message: error instanceof MonitoringError ? error.message
         : "Delivery could not be confirmed. Check reported state before trying again.", pending });
