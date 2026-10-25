@@ -186,3 +186,20 @@ reports physical live frontend/AI pipeline operation. This does not claim model
 accuracy or additional physical actuator acceptance. Private .env.local remains
 ignored. The actuator and live-scan changes separate cleanly by file, so checkpoint
 uses two new commits with no history rewrite. Generated CLAUDE.md is left local.
+
+
+## Live AI scan checkpoint — 2026-10-25
+
+/scan defaults to Live Detection and renders LiveDetectionPanel through the active
+route. Upload Image preserves the existing upload/capture and recent-scan workflow.
+Native MJPEG uses /api/ai/live/stream; health and Spring-backed webcam-0 metadata
+remain independent, with offline/retry handling. Server-only live-service settings
+stay behind Next API routes. The shell's misleading prototype/demo banners are
+suppressed on /scan; other prototype pages retain their notices.
+
+Tests cover active route rendering, mode button handlers, stream URL, offline and
+metadata-failure behavior, guest/member shell banners and client secret boundaries.
+Current test/lint/typecheck checks pass; production build PASS is user-reported
+from the normal terminal for this tree. User reports physical frontend/live AI
+operation, including ESP32-CAM feed reaching the pipeline. No additional detection
+accuracy, flash/image quality or brownout acceptance is inferred.

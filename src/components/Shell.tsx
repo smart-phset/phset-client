@@ -34,7 +34,7 @@ function isActive(path: string, href: string) {
 
 export function Sidebar({ user }: { user: SessionUser }) {
   const path = usePathname();
-  const monitoring = path === "/" || path === "/climate" || path === "/history";
+  const monitoring = path === "/" || path === "/climate" || path === "/history" || path === "/scan";
   const t = useT();
   const { openAlerts } = useStore();
   return (
@@ -131,7 +131,7 @@ function RoomPicker() {
 
 export function Topbar({ user }: { user: SessionUser }) {
   const path = usePathname();
-  const monitoring = path === "/" || path === "/climate" || path === "/history";
+  const monitoring = path === "/" || path === "/climate" || path === "/history" || path === "/scan";
   const { updatedAgo, reading, live } = useStore();
   const { lang, setLang } = useLang();
   const t = useT();
@@ -180,7 +180,7 @@ export function Topbar({ user }: { user: SessionUser }) {
 
 export function MobileNav() {
   const path = usePathname();
-  const monitoring = path === "/" || path === "/climate" || path === "/history";
+  const monitoring = path === "/" || path === "/climate" || path === "/history" || path === "/scan";
   const t = useT();
   const { openAlerts } = useStore();
   const cls = (href: string) =>
