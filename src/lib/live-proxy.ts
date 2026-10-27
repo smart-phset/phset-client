@@ -1,5 +1,5 @@
 // Configuration and authentication are injected by the server-only adapter.
-export function liveHandlers(baseUrl: string, session: () => Promise<unknown>, transport: typeof fetch = fetch) {
+export function liveHandlers(baseUrl: string, session: () => Promise<unknown>, transport: typeof fetch = fetch, cameraId = "") {
   const offline = () => Response.json({ status: "offline", message: "Live AI service is offline." },
     { status: 503, headers: { "Cache-Control": "no-store" } });
   return async (request: Request, stream: boolean) => {
@@ -19,7 +19,7 @@ export function liveHandlers(baseUrl: string, session: () => Promise<unknown>, t
       if (!stream) {
         const health = await upstream.json();
         return Response.json({ status: ["ok", "starting", "camera_unavailable", "inference_unavailable", "stalled"].includes(health.status) ? health.status : "offline",
-          camera: "webcam-0", streaming: health.streaming === true }, { headers: { "Cache-Control": "no-store" } });
+          camera: cameraId, streaming: health.streaming === true }, { headers: { "Cache-Control": "no-store" } });
       }
       const contentType = upstream.headers.get("content-type") || "";
       if (!/^multipart\/x-mixed-replace;\s*boundary=frame$/i.test(contentType) || !upstream.body) {

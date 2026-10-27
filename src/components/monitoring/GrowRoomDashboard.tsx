@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLatestAIDetectionState } from "@/features/ai-alerts/aiDetectionApi";
+import { AISeverityBadge } from "@/features/ai-alerts/AISeverityBadge";
+import { isFreshDetection } from "@/features/ai-alerts/aiAlertTransitions";
 import Link from "next/link";
 import { useT } from "@/lib/i18n";
-import { ACTUATORS, CONFIRM_MS, POLL_MS, browserJson, observeCommand, acceptCommand, freshness, MonitoringError,
+import { ActuatorCard } from "./ActuatorSwitch";
+import { actuatorControl, expireActuatorCommand } from "@/lib/actuator-controls";
+import { ACTUATORS, POLL_MS, browserJson, observeCommand, acceptCommand, freshness, MonitoringError,
   type Actuator, type CommandReceipt, type CommandStatus, type Detection, type MonitorSnapshot, type PendingCommand } from "@/lib/monitoring";
 import { startMonitoringPoll } from "@/lib/monitoring-poll";
 
 type CommandStatuses = Partial<Record<Actuator, CommandStatus>>;
-const actuatorLabels = { fan: "Fan", light: "Light", pump: "Water Pump" };
 const statusLabels = { active: "ONLINE", stale: "STALE", offline: "OFFLINE", unavailable: "Unavailable" };
 const statusIcons = { active: "check_circle", stale: "warning", offline: "cloud_off", unavailable: "cloud_off" };
 const statusStyles = { active: "bg-tertiary-fixed text-tertiary", stale: "bg-secondary-fixed text-on-secondary-fixed",
@@ -21,9 +25,10 @@ export function GrowRoomDashboard({ deviceId, teamAccount }: { deviceId: string;
   const [snapshot, setSnapshot] = useState<MonitorSnapshot | null>(null);
   const [stateError, setStateError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [detection, setDetection] = useState<Detection | null>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
-  const [aiLoading, setAiLoading] = useState(true);
+  const ai = useLatestAIDetectionState();
+  const detection = ai.data?.detection ?? null;
+  const aiError = ai.isError ? "Detection metadata unavailable." : null;
+  const aiLoading = ai.isLoading || ai.isUninitialized;
   const [commands, setCommands] = useState<CommandStatuses>({});
   const commandsRef = useRef<CommandStatuses>({});
   const commandRequests = useRef<Partial<Record<Actuator, AbortController>>>({});
@@ -52,14 +57,6 @@ export function GrowRoomDashboard({ deviceId, teamAccount }: { deviceId: string;
             if (!signal.aborted && mounted.current) setStateError(errorMessage(error));
           } finally { if (!signal.aborted && mounted.current) setLoading(false); }
         })(),
-        (async () => {
-          try {
-            const next = await browserJson<{ detection: Detection }>("/api/monitoring/detection", { signal: requestSignal });
-            if (!signal.aborted && mounted.current) { setDetection(next.detection); setAiError(null); }
-          } catch (error) {
-            if (!signal.aborted && mounted.current) setAiError(errorMessage(error));
-          } finally { if (!signal.aborted && mounted.current) setAiLoading(false); }
-        })(),
       ]);
     }, {
       visible: () => document.visibilityState !== "hidden",
@@ -80,10 +77,9 @@ export function GrowRoomDashboard({ deviceId, teamAccount }: { deviceId: string;
     const current = { ...commandsRef.current };
     for (const actuator of ACTUATORS) {
       const command = current[actuator];
-      if (command?.phase === "accepted" && now - command.pending.sentAt > CONFIRM_MS) {
-        current[actuator] = { ...command, phase: "unconfirmed",
-          message: "Accepted, but no matching ESP32 report was observed. Check the device; the command will not be retried." };
-        changed = true;
+      if (command) {
+        const next = expireActuatorCommand(command, now);
+        if (next !== command) { current[actuator] = next; changed = true; }
       }
     }
     if (changed) { commandsRef.current = current; setCommands(current); }
@@ -97,7 +93,8 @@ export function GrowRoomDashboard({ deviceId, teamAccount }: { deviceId: string;
   const canControl = teamAccount && (snapshot?.canControl ?? true);
 
   async function send(actuator: Actuator, on: boolean) {
-    if (commandRequests.current[actuator] || !canControl || (on && health !== "active")) return;
+    // Ref guard closes the gap before React renders the disabled switch.
+    if (commandRequests.current[actuator] || actuatorControl(state?.[actuator], health, canControl, commandsRef.current[actuator]).disabled) return;
     const controller = new AbortController();
     commandRequests.current[actuator] = controller;
     const pending: PendingCommand = { target: on, sentAt: Date.now(),
@@ -151,32 +148,11 @@ export function GrowRoomDashboard({ deviceId, teamAccount }: { deviceId: string;
       <section aria-labelledby="equipment-title">
         <h2 id="equipment-title" className="text-headline-sm font-headline-sm mb-3">{t("Equipment")}</h2>
         <p className="text-on-surface-variant mb-4">{t("States are reported by the ESP32; they do not measure physical load operation.")}</p>
-        {!canControl && <p className="mb-4 rounded-lg bg-surface-container-low p-3">{t("Guest access is read-only. Sign in with a team account to control equipment.")} <Link href="/api/auth/signout" className="text-primary underline">{t("Sign in")}</Link></p>}
+        {!canControl && <p className="mb-4 rounded-lg bg-surface-container-low p-3">{t("Guest access is read-only. Sign in with a team account to control equipment.")} <Link href="/api/auth/signout" prefetch={false} className="text-primary underline">{t("Sign in")}</Link></p>}
         <div className="grid md:grid-cols-3 gap-4">
-          {ACTUATORS.map(actuator => {
-            const command = commands[actuator], value = state?.[actuator];
-            const sending = command?.phase === "sending";
-            return <article key={actuator} className="rounded-xl bg-surface-container-lowest p-5 shadow-sm flex flex-col">
-              <h3 className="text-headline-sm font-headline-sm">{t(actuatorLabels[actuator])}</h3>
-              <p className="my-4 text-headline-lg font-semibold">{typeof value === "boolean" ? t(value ? "ON" : "OFF") : t("Unknown")}
-                {state && health !== "active" && <span className="ml-2 text-label-md text-on-surface-variant">{t("Last reported")}</span>}</p>
-              <p className="text-on-surface-variant mb-4 flex-1">{t(actuator === "pump"
-                ? "Relay switching verified. Water pump/load operation remains unverified. The pump output automatically turns OFF after approximately 10 seconds."
-                : "Physical equipment operation remains unverified.")}</p>
-              <div className="grid grid-cols-2 gap-2" role="group" aria-label={t(actuatorLabels[actuator])}>
-                <button type="button" disabled={!canControl || sending || health !== "active" || command?.phase === "accepted"}
-                  onClick={() => { void send(actuator, true); }} className="min-h-11 rounded-lg bg-primary text-on-primary font-semibold disabled:opacity-40 disabled:cursor-not-allowed">{t("Turn ON")}</button>
-                <button type="button" disabled={!canControl || sending} onClick={() => { void send(actuator, false); }}
-                  className="min-h-11 rounded-lg border border-outline text-primary font-semibold disabled:opacity-40 disabled:cursor-not-allowed">{t("Turn OFF")}</button>
-              </div>
-              {health !== "active" && canControl && <p className="mt-3 text-on-surface-variant">{t("ON requires recent device state. OFF remains available.")}</p>}
-              <div role="status" aria-live="polite" className="mt-3 text-body-md min-h-10">
-                {command && <p className="font-semibold">{t("Last command")}: {t(command.pending.target ? "ON" : "OFF")}</p>}
-                {command && <p className={command.phase === "error" || command.phase === "unconfirmed" ? "text-error" : "text-on-surface-variant"}>{t(command.message)}</p>}
-                {command?.receipt && <p className="text-label-sm text-on-surface-variant mt-1 break-all">{t("Command")}: {command.receipt.command_id}</p>}
-              </div>
-            </article>;
-          })}
+          {ACTUATORS.map(actuator => <ActuatorCard key={actuator} actuator={actuator}
+            value={state?.[actuator]} health={health} canControl={canControl} command={commands[actuator]}
+            onChange={on => { void send(actuator, on); }} />)}
         </div>
       </section>
       <section aria-labelledby="ai-title" className="bg-surface-container-lowest rounded-xl p-5 sm:p-6 shadow-sm">
@@ -184,6 +160,7 @@ export function GrowRoomDashboard({ deviceId, teamAccount }: { deviceId: string;
         <p className="text-on-surface-variant mt-2">{t("Latest stored detection. AI checks are suggestions; inspect the crop before acting.")}</p>
         {aiLoading && <p role="status" className="mt-4">{t("Loading AI result…")}</p>}
         {aiError && <p role="status" className="mt-4 text-on-surface-variant">{t(aiError)} {detection && t("Showing the last retrieved result.")}</p>}
+        <AISeverityBadge severity={!aiError && detection && now !== null && isFreshDetection(detection, now) ? detection.severity : "GREY"} />
         {detection && <DetectionCard detection={detection} />}
       </section>
     </div>

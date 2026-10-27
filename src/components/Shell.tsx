@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useLang, useT } from "@/lib/i18n";
+import { AINotificationLink, AINotificationCount } from "@/features/ai-alerts/AINotificationLink";
 import type { SessionUser } from "@/lib/session";
 import { useStore, type RoomStatus } from "@/lib/store";
 
@@ -34,9 +35,7 @@ function isActive(path: string, href: string) {
 
 export function Sidebar({ user }: { user: SessionUser }) {
   const path = usePathname();
-  const monitoring = path === "/" || path === "/climate" || path === "/history" || path === "/scan";
   const t = useT();
-  const { openAlerts } = useStore();
   return (
     <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-60 bg-surface-container-lowest border-r border-outline-variant z-50 flex-col justify-between select-none">
       <div className="flex flex-col">
@@ -56,9 +55,7 @@ export function Sidebar({ user }: { user: SessionUser }) {
                   <span aria-hidden="true" className="material-symbols-outlined text-[20px]">{n.icon}</span>
                   <span>{t(n.label)}</span>
                 </div>
-                {!monitoring && n.href === "/alerts" && openAlerts.length > 0 && (
-                  <span className="bg-error-container text-on-error-container font-label-sm text-label-sm px-1.5 py-0.5 rounded-full">{openAlerts.length}</span>
-                )}
+                {n.href === "/alerts" && <AINotificationCount />}
               </Link>
             );
           })}
@@ -131,7 +128,7 @@ function RoomPicker() {
 
 export function Topbar({ user }: { user: SessionUser }) {
   const path = usePathname();
-  const monitoring = path === "/" || path === "/climate" || path === "/history" || path === "/scan";
+  const monitoring = path === "/" || path === "/climate" || path === "/history" || path === "/scan" || path === "/alerts";
   const { updatedAgo, reading, live } = useStore();
   const { lang, setLang } = useLang();
   const t = useT();
@@ -170,6 +167,7 @@ export function Topbar({ user }: { user: SessionUser }) {
             </span>
           ))}
         </div>
+        <AINotificationLink />
         <Link href="/settings" aria-label={t("Settings")} title={user.guest ? t("Guest") : user.name} className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${user.guest ? "bg-surface-container-high" : "bg-primary"}`}>
           <span aria-hidden="true" className={`material-symbols-outlined text-[18px] ${user.guest ? "text-on-surface-variant" : "text-on-primary"}`}>{user.guest ? "person_outline" : "person"}</span>
         </Link>
@@ -180,9 +178,7 @@ export function Topbar({ user }: { user: SessionUser }) {
 
 export function MobileNav() {
   const path = usePathname();
-  const monitoring = path === "/" || path === "/climate" || path === "/history" || path === "/scan";
   const t = useT();
-  const { openAlerts } = useStore();
   const cls = (href: string) =>
     `flex-1 flex flex-col items-center justify-center min-h-[44px] min-w-[44px] gap-1 transition-colors ${isActive(path, href) ? "text-primary font-bold" : "text-on-surface-variant"}`;
   return (
@@ -205,9 +201,7 @@ export function MobileNav() {
         <Link className={`${cls("/alerts")} relative`} href="/alerts">
           <div className="relative flex items-center justify-center">
             <span aria-hidden="true" className="material-symbols-outlined text-[24px]">notifications</span>
-            {!monitoring && openAlerts.length > 0 && (
-              <span className="absolute -top-1 -right-2 bg-error text-on-error font-label-sm text-[10px] w-4 h-4 rounded-full flex items-center justify-center leading-none">{openAlerts.length}</span>
-            )}
+            <span className="absolute -top-2 -right-3"><AINotificationCount /></span>
           </div>
           <span className="font-label-sm text-label-sm">{t("Alerts")}</span>
         </Link>

@@ -1,3 +1,3 @@
 import { monitoringApi } from "@/lib/monitoring-server";
 export const dynamic = "force-dynamic";
-export async function GET() { return monitoringApi("webcam-0").detection(); }
+export async function GET() { return monitoringApi().detection(); }
