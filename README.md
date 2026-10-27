@@ -52,7 +52,7 @@ Commit `.env.example` only, never `.env.local`.
 | SMARTPHSET_API_BASE_URL | Spring origin, `http://localhost:9090` | No |
 | SMARTPHSET_IOT_API_KEY | Must equal Spring IOT_API_KEY, `YOUR_PRIVATE_IOT_KEY` | Yes |
 | SMARTPHSET_DEVICE_ID | Match firmware DEVICE_ID and Spring allowlist, `grow-room-1` | No |
-| SMARTPHSET_AI_CAMERA_ID | Overview/history camera: `webcam-0` or `esp32-cam` | No |
+| SMARTPHSET_AI_CAMERA_ID | Monitoring, live detection and alerts camera: `webcam-0` or `esp32-cam` | No |
 | SMARTPHSET_AI_LIVE_BASE_URL | Python live origin, `http://127.0.0.1:8001`; server-only | No |
 | AUTH_USER | Team login name, `team` | No |
 | AUTH_PASSWORD | Team password, `YOUR_TEAM_PASSWORD`; blank disables accounts | Yes |
@@ -67,11 +67,15 @@ PowerShell key generation. Guests can view monitoring/live streams but cannot
 operate actuators. Configure AUTH_PASSWORD and AUTH_SECRET for team controls.
 AUTH_SECRET otherwise falls back to AUTH_PASSWORD; set it explicitly.
 
-**Current limitation:** `/api/ai/live/detection` explicitly requests `webcam-0`.
-An ESP32-CAM stream can display live, but that panel's metadata can be missing or
-belong to the webcam. SMARTPHSET_AI_CAMERA_ID changes Overview/history, not this
-route. For ESP32 use Overview/history or Spring's `?camera=esp32-cam` endpoint to
-verify its detections. Do not interpret old webcam results as ESP32 results.
+Set SMARTPHSET_AI_CAMERA_ID to match the camera published by Python: `esp32-cam`
+for the ESP32-CAM or `webcam-0` for the laptop camera. Monitoring, live detection
+metadata and global AI alerts share this server-side setting. Configure Python's
+live stream to use the same source and restart Next after changing the setting.
+AI metadata polls every two seconds while the tab is focused. Fresh results show
+GREEN, YELLOW, RED or UNKNOWN; severity changes can create toasts and entries in
+the Alerts page. Notification history is kept in memory for the current visit.
+See [AI alerts](docs/ai-severity-alerts.md) and
+[actuator switches](docs/actuator-switches.md) for behavior and verification.
 
 Loopback refers to the machine running Next.js. A remote hosted Next.js instance
 cannot reach your laptop via 127.0.0.1. This guide runs everything locally.
