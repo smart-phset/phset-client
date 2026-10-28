@@ -66,7 +66,7 @@ function shiftHHMM(hhmmStr: string, deltaMs: number) {
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const monitoring = path === "/" || path === "/climate" || path === "/history";
+  const monitoring = path === "/" || path === "/climate" || path === "/history" || path === "/status";
   const [roomId, setRoomId] = useState(ROOMS[0].id);
   const [readings, setReadings] = useState<Record<string, Reading>>(INITIAL_READINGS);
   const [lastUpdate, setLastUpdate] = useState(() => Date.now() - 8000);

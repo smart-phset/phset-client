@@ -1,6 +1,10 @@
 // Configuration and authentication are injected by the server-only adapter.
-export function liveHandlers(baseUrl: string, session: () => Promise<unknown>, transport: typeof fetch = fetch) {
+export function liveHandlers(baseUrl: string, session: () => Promise<unknown>, transport: typeof fetch = fetch, cameraId = "", relayToken = "") {
   const offline = () => Response.json({ status: "offline", message: "Live AI service is offline." },
+    { status: 503, headers: { "Cache-Control": "no-store" } });
+  const mismatch = (actual?: string | null) => Response.json({ status: "source_mismatch", camera: cameraId, streaming: false,
+    ...((actual === "webcam-0" || actual === "esp32-cam") ? { actualCamera: actual } : {}),
+    message: "Python is serving a different camera. Select its matching AI source or restart Python with the intended source." },
     { status: 503, headers: { "Cache-Control": "no-store" } });
   return async (request: Request, stream: boolean) => {
     if (!await session()) return Response.json({ message: "Sign in to view the live camera." }, { status: 401 });
@@ -12,16 +16,20 @@ export function liveHandlers(baseUrl: string, session: () => Promise<unknown>, t
     let streaming = false;
     try {
       const base = new URL(baseUrl);
-      if (!["http:", "https:"].includes(base.protocol) || base.username || base.password || base.search || base.hash) return offline();
+      if ((relayToken && base.protocol !== "https:") || !["http:", "https:"].includes(base.protocol) || base.username || base.password || base.search || base.hash) return offline();
       const upstream = await transport(base.href.replace(/\/$/, "") + (stream ? "/stream.mjpg" : "/health"),
-        { cache: "no-store", redirect: "error", signal: controller.signal });
+        { cache: "no-store", redirect: "error", signal: controller.signal, ...(relayToken ? { headers: { Authorization: `Bearer ${relayToken}` } } : {}) });
       if (!upstream.ok) { await upstream.body?.cancel(); return offline(); }
       if (!stream) {
         const health = await upstream.json();
+        if (cameraId && health.camera !== cameraId) return mismatch(health.camera);
         return Response.json({ status: ["ok", "starting", "camera_unavailable", "inference_unavailable", "stalled"].includes(health.status) ? health.status : "offline",
-          camera: "webcam-0", streaming: health.streaming === true }, { headers: { "Cache-Control": "no-store" } });
+          camera: cameraId, streaming: health.status === "ok" && health.streaming === true }, { headers: { "Cache-Control": "no-store" } });
       }
       const contentType = upstream.headers.get("content-type") || "";
+      if (cameraId && upstream.headers.get("x-smartphset-camera-id") !== cameraId) {
+        await upstream.body?.cancel(); return mismatch(upstream.headers.get("x-smartphset-camera-id"));
+      }
       if (!/^multipart\/x-mixed-replace;\s*boundary=frame$/i.test(contentType) || !upstream.body) {
         await upstream.body?.cancel(); return offline();
       }
@@ -35,7 +43,7 @@ export function liveHandlers(baseUrl: string, session: () => Promise<unknown>, t
             if (done) { cleanup(); reader.releaseLock(); destination.close(); }
             else destination.enqueue(value);
           } catch {
-            cleanup(); destination.error(new Error("Live stream disconnected."));
+            abort(); cleanup(); reader.releaseLock(); destination.error(new Error("Live stream disconnected."));
           }
         },
         async cancel() {
@@ -45,7 +53,8 @@ export function liveHandlers(baseUrl: string, session: () => Promise<unknown>, t
       }, { highWaterMark: 0 });
       streaming = true;
       return new Response(body, { headers: { "Content-Type": contentType,
-        "Cache-Control": "no-store, no-transform", "X-Accel-Buffering": "no" } });
+        "Cache-Control": "no-store, no-transform", "X-Accel-Buffering": "no",
+        ...(cameraId ? { "X-SmartPhset-Camera-Id": cameraId } : {}) } });
     } catch { return offline(); }
     finally {
       clearTimeout(timeout);

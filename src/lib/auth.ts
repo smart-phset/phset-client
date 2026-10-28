@@ -15,22 +15,35 @@ function secret() {
   return process.env.AUTH_SECRET || process.env.AUTH_PASSWORD || "smartphset-guest-only";
 }
 
-export async function sign(user: string) {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret()), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(user));
-  const hex = Array.from(new Uint8Array(mac), (b) => b.toString(16).padStart(2, "0")).join("");
-  return `${user}.${hex}`;
+async function sessionKey() {
+  return crypto.subtle.importKey("raw", new TextEncoder().encode(secret()), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
 
-/** The signed-in user ("guest" or a username), or null. Fails closed when accounts or guests are switched off. */
+export async function sign(user: string) {
+  const payload = `${encodeURIComponent(user).replace(/\./g, "%2E")}.${Math.floor(Date.now() / 1000) + MAX_AGE}.${crypto.randomUUID()}`;
+  const mac = await crypto.subtle.sign("HMAC", await sessionKey(), new TextEncoder().encode(payload));
+  const hex = Array.from(new Uint8Array(mac), b => b.toString(16).padStart(2, "0")).join("");
+  return `${payload}.${hex}`;
+}
+
+/** Enforce expiry server-side as well as in the browser. Legacy non-expiring cookies require sign-in again. */
 export async function verify(token: string | undefined): Promise<string | null> {
-  if (!token) return null;
-  const user = token.slice(0, token.lastIndexOf("."));
-  if (!user || (await sign(user)) !== token) return null;
+  if (!token || token.length > 1024) return null;
+  const parts = token.split(".");
+  if (parts.length !== 4) return null;
+  const [encoded, expires, nonce, hex] = parts;
+  const now = Math.floor(Date.now() / 1000);
+  if (!/^\d+$/.test(expires) || Number(expires) <= now || Number(expires) > now + MAX_AGE ||
+      !/^[0-9a-f-]{36}$/.test(nonce) || !/^[0-9a-f]{64}$/.test(hex)) return null;
+  const bytes = Uint8Array.from(hex.match(/../g)!, pair => parseInt(pair, 16));
+  if (!await crypto.subtle.verify("HMAC", await sessionKey(), bytes, new TextEncoder().encode(parts.slice(0, 3).join(".")))) return null;
+  let user: string;
+  try { user = decodeURIComponent(encoded); } catch { return null; }
   if (user === GUEST) return allowGuest() ? user : null;
-  // a named user only exists when team accounts are configured with a real secret
   return accountsEnabled() && user === (process.env.AUTH_USER || "team") ? user : null;
 }
+
+export { sameOrigin } from "./request-origin.ts";
 
 /** Secure cookies only over HTTPS, so sign-in also works on a phone over plain local Wi-Fi during tests. */
 export function sessionCookie(value: string, secure: boolean) {

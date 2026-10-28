@@ -8,22 +8,28 @@
     "start": "next start",
     "lint": "eslint src tests --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:production": "node scripts/production-smoke.mjs"
   },
   "dependencies": {
+    "@reduxjs/toolkit": "^2.13.0",
     "next": "16.3.8",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "react-redux": "^9.3.0"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.21",
+    "eslint": "9.39.5",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "^5",
-    "eslint": "9.39.5",
     "typescript-eslint": "8.70.0"
+  },
+  "engines": {
+    "node": ">=24.22.1"
   }
 }

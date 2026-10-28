@@ -1,262 +1,174 @@
-# SmartPhset web app
+# SmartPhset · Web Dashboard
 
-Next.js grow-room monitoring and AI Scan interface for SmartPhset.
+Authenticated Next.js dashboard for grow-room telemetry, fan/light/pump controls,
+detection history and on-demand camera analysis. Uses Spring for durable IoT/AI
+metadata and a separate Python YOLO service for inference. Repository remote:
+`smart-phset/phset-client`; workspace directory: `SmartPhset-Prototype-Frontend`.
 
-## Role in SmartPhset
+[API](https://github.com/smart-phset/phset-api) · [AI](https://github.com/smart-phset/phset-ai) · [Camera](https://github.com/smart-phset/web-cam) · [Sensors](https://github.com/smart-phset/smart-things)
 
-Browser → Next.js server → [Spring REST](https://github.com/smart-phset/phset-api)
-→ PostgreSQL / MQTT → [ESP32](https://github.com/smart-phset/smart-things).
-The camera firmware lives in [web-cam](https://github.com/smart-phset/web-cam),
-separate from the regular ESP32 MQTT firmware. For live video: camera → [Python/OpenCV/YOLO](https://github.com/smart-phset/phset-ai/tree/feat/live-camera)
-→ annotated MJPEG → Next.js → browser. AI metadata/history is stored in Spring.
+## Features and architecture
 
-Overview `/` and `/climate` show real grow-room readings and fan/light/pump controls;
-`/history` shows persisted detections. No soil sensor is installed: floating GPIO34
-values are not valid soil moisture. Some other pages retain labeled prototype data.
-`/scan` has **Live Detection** and **Upload Image** tabs. Upload uses the separate
-legacy bridge; an unconfigured upload URL produces labeled demo results.
+Browser → signed Next session → server-side Spring/MQTT-backed APIs and Python
+session proxy. Private service keys and raw shared-camera URLs never enter browser
+configuration. No `NEXT_PUBLIC_` variable is needed for these services.
 
-## Requirements
-
-Linux: Git, Node.js and npm, Bash. Windows: Git for Windows, Node.js with npm,
-PowerShell. Native Windows works; WSL is optional. For the whole system also install
-Docker Desktop, JDK 25, Python 3.11 (with the `py` launcher), and Arduino CLI as
-specified in the other repositories.
-
-`package.json` pins Next.js **16.3.8**, React **19.2.8** and uses Tailwind 3 and
-TypeScript 5. It has no application-level Node engine pin; installed Next requires
-Node **>=20.9.0**. The inspected developer environment uses Node **26.12.0** and
-npm **12.2.1**. Use `npm ci` with the committed package-lock.json.
-
-## Clone
+- IoT dashboard polls reported telemetry/state and displays freshness/errors.
+- Equipment controls issue explicit ON/OFF commands; receipt is separate from reported state.
+- Camera Manager discovers real browser `MediaDevices` inputs, front/rear phone choices,
+  and Spring-registered shared sources such as ESP32-CAM.
+- Start Camera opens a preview. **Start AI Detection** separately enables sampling/inference;
+  Stop AI Detection clears analysis while retaining preview; Stop Camera releases tracks/session.
+- Browser JPEG sampling supports 1/2/5 fps maximum, one in-flight request and SVG
+  bounding boxes scaled to the frame. Preview alone does not upload browser frames.
+- Shared MJPEG capture uses one Python worker per physical source; multiple viewers
+  share capture/inference while session start/stop/results remain independent.
 
 ```text
-git clone https://github.com/smart-phset/phset-client.git
-cd phset-client
-git switch feat/grow-room-monitoring
+src/app/(app)/                authenticated pages: dashboard, scan, settings, status
+src/app/api/cameras/          signed session / registry / JPEG / MJPEG server proxy
+src/app/api/ai/live/          legacy live compatibility routes
+src/app/api/auth/             team sign-in/sign-out
+src/components/CameraManager.tsx   preview and analysis UI
+src/lib/browser-camera.ts     browser track ownership and device constraints
+src/lib/camera-service.ts     Python/Spring server-side service authentication
+src/lib/camera-analysis.ts    bounded frame pump
+src/lib/auth.ts               signed expiring cookie sessions
+src/lib/monitoring-proxy.ts   IoT server integration
+ tests/                       node test suite
+ scripts/ / deploy/ / docs/   checks, Docker entrypoint, Nginx example and guides
 ```
 
-This feature branch contains the current monitoring/live UI. Do not assume main
-contains it. Authenticate Git for Windows with your GitHub account when prompted;
-you need access to the smart-phset organization repositories.
+## Requirements and installation
 
-## Configuration
-
-Copy `.env.example` to ignored `.env.local`; replace `YOUR_*` values privately.
-Next loads it automatically. Restart Next after changes. Every value below is
-server-side: **never use NEXT_PUBLIC_ for these keys or internal service URLs**.
-Commit `.env.example` only, never `.env.local`.
-
-| Variable | Purpose / example | Secret? |
-|---|---|---|
-| SMARTPHSET_API_BASE_URL | Spring origin, `http://localhost:9090` | No |
-| SMARTPHSET_IOT_API_KEY | Must equal Spring IOT_API_KEY, `YOUR_PRIVATE_IOT_KEY` | Yes |
-| SMARTPHSET_DEVICE_ID | Match firmware DEVICE_ID and Spring allowlist, `grow-room-1` | No |
-| SMARTPHSET_AI_CAMERA_ID | Overview/history camera: `webcam-0` or `esp32-cam` | No |
-| SMARTPHSET_AI_LIVE_BASE_URL | Python live origin, `http://127.0.0.1:8001`; server-only | No |
-| AUTH_USER | Team login name, `team` | No |
-| AUTH_PASSWORD | Team password, `YOUR_TEAM_PASSWORD`; blank disables accounts | Yes |
-| AUTH_SECRET | Random cookie signing secret, `YOUR_PRIVATE_AUTH_SECRET` | Yes |
-| ALLOW_GUEST | `true` permits read-only guests; `false` disables guest entry | No |
-| BACKEND_URL | Optional photo bridge origin, `http://127.0.0.1:8000`; blank = demo upload | No |
-| BACKEND_MODE | `bridge` for bridge.py; `api` only for the legacy Node API contract | No |
-| API_KEY | Match Python BRIDGE_API_KEY for real photo uploads | Yes |
-
-Use separate random auth and bridge secrets; the backend README includes Bash and
-PowerShell key generation. Guests can view monitoring/live streams but cannot
-operate actuators. Configure AUTH_PASSWORD and AUTH_SECRET for team controls.
-AUTH_SECRET otherwise falls back to AUTH_PASSWORD; set it explicitly.
-
-**Current limitation:** `/api/ai/live/detection` explicitly requests `webcam-0`.
-An ESP32-CAM stream can display live, but that panel's metadata can be missing or
-belong to the webcam. SMARTPHSET_AI_CAMERA_ID changes Overview/history, not this
-route. For ESP32 use Overview/history or Spring's `?camera=esp32-cam` endpoint to
-verify its detections. Do not interpret old webcam results as ESP32 results.
-
-Loopback refers to the machine running Next.js. A remote hosted Next.js instance
-cannot reach your laptop via 127.0.0.1. This guide runs everything locally.
-
-## Linux setup
+Node.js **>=24.22.1** (`.nvmrc`: 24.22.1), npm, Git. Dependencies: Next.js 16.3.8,
+React/React DOM 19.2.8, TypeScript 5, Redux Toolkit/react-redux, Tailwind CSS 3,
+ESLint 9. Exact installs come from `package-lock.json`.
 
 ```bash
+node --version
 npm ci
 cp .env.example .env.local
-# Edit .env.local privately before starting.
-npm run dev -- --hostname 127.0.0.1 --port 3100
+# Edit private values before starting.
+npm run dev -- --hostname 127.0.0.1 --port 3000
 ```
 
-## Windows setup
+Open `http://localhost:3000`, sign in and select a camera on the dashboard.
+Next automatically loads `.env.local`; restart after changing it. Use `npm ci`
+for a fresh install; preserve existing work and do not copy teammate secrets.
 
-```powershell
-npm ci
-Copy-Item .env.example .env.local
-notepad .env.local
-npm run dev -- --hostname 127.0.0.1 --port 3100
-```
+## Server configuration
 
-Copy only once; do not overwrite an existing configured .env.local. If PowerShell
-blocks npm.ps1, use `npm.cmd` with the same arguments instead of weakening global
-execution policy.
+| Variable | Purpose |
+|---|---|
+| `AUTH_USER`, `AUTH_PASSWORD` | Shared team account; production requires strong non-placeholder password |
+| `AUTH_SECRET` | HMAC session signing secret, at least 32 characters in production |
+| `ALLOW_GUEST` | Default allows guests unless `false`; set false in production |
+| `SMARTPHSET_API_BASE_URL` | Spring origin, local `http://127.0.0.1:9090` or deployed HTTPS API |
+| `SMARTPHSET_IOT_API_KEY` | Match Spring `IOT_API_KEY` |
+| `SMARTPHSET_DEVICE_ID` | Allowlisted MQTT device, example `grow-room-1` |
+| `SMARTPHSET_AI_SERVICE_URL` | New persistent service base; default `http://127.0.0.1:8002` |
+| `SMARTPHSET_AI_SERVICE_KEY` | New service secret, match Python; never expose to browser |
+| `SMARTPHSET_CAMERA_API_KEY` | New Spring registry key, match API |
+| `SMARTPHSET_AI_CAMERA_ID` | Legacy/shared metadata identity, example `esp32-cam` |
+| `SMARTPHSET_AI_LIVE_BASE_URL` | Legacy live service/relay origin, default loopback :8001 |
+| `SMARTPHSET_AI_LIVE_ENABLED` | Legacy live-route feature switch; not a gate for new `/api/cameras` routes |
+| `SMARTPHSET_AI_RELAY_TOKEN` | Optional legacy relay bearer token; not the AI ingest key |
+| `SMARTPHSET_AI_UPLOAD_ENABLED` | Image-upload switch; independent of persistent camera routes |
+| `BACKEND_URL`, `BACKEND_MODE`, `API_KEY` | Optional photo bridge URL/mode (`bridge`) and `BRIDGE_API_KEY` counterpart; blank URL gives demo uploads |
 
-## Running
+Authentication uses signed HttpOnly SameSite=Lax cookies with server-checked
+14-day expiry, a nonce and Secure over HTTPS. It is independent of Spring's JWT
+stubs. Valid guest sessions can access camera routes when guests are enabled;
+use `ALLOW_GUEST=false` for production. Mutation proxies enforce same-origin.
 
-Normal team command in either shell:
+## Browser and shared-camera setup
 
-```text
-npm run dev -- --hostname 127.0.0.1 --port 3100
-```
+For **browser-camera AI** on the developer computer:
 
-`npm run dev` without options defaults to port 3000. Team examples use 3100.
-Open http://127.0.0.1:3100, sign in (or continue as a guest), then open `/scan`.
-After login, inspect http://127.0.0.1:3100/api/ai/live/health and
-http://127.0.0.1:3100/api/ai/live/stream in the same browser. Unauthenticated API
-requests return 401. Health reports Python status; stream is a continuous response.
+1. Start Python `session_service.py` with a strong `SMARTPHSET_AI_SERVICE_KEY` and
+   `SMARTPHSET_CAMERA_SOURCES='{}'`. Empty shared sources are valid.
+2. Set the identical service key and loopback URL in Next's `.env.local`.
+3. Start Next, sign in, choose a browser device, Start Camera, then Start AI Detection.
 
-For real Upload Image, set BACKEND_MODE=bridge, BACKEND_URL=http://127.0.0.1:8000
-and API_KEY matching BRIDGE_API_KEY. Start `python bridge.py --host 127.0.0.1 --port 8000`
-in a separate activated AI terminal. This service does not replace the live
-service on 8001 and uploaded-image results do not automatically enter Spring live
-history. Do not point BACKEND_MODE=api at Spring: it refers to an older Node contract.
+The browser preview can start without Python. Enabling AI creates a browser
+session and uploads sampled JPEGs. Browser inference does not require Spring
+registry success and currently does not publish browser detections to Spring.
+Registry listing can fail while browser AI remains available.
 
-## Start SmartPhset from a fresh computer/reboot
+For **registered shared cameras**, start the updated local Spring API with
+`SMARTPHSET_CAMERA_REGISTRY=esp32-cam=Grow room` and a private registry key. Add
+`{"esp32-cam":"http://CAMERA_LAN_IP:81/stream"}` to Python's private
+`SMARTPHSET_CAMERA_SOURCES`. Next must use that API origin and matching registry key.
+The exact same ID is required in both configurations. Spring returns IDs/labels
+and `unknown` availability; Next combines that with Python `/sources` state.
+The new registry is **not deployed on AWS** as of the release audit; current
+Nginx denies those routes. See [dynamic inference](docs/dynamic-camera-inference.md).
 
-One time: install tools, clone the five repositories as siblings in this order,
-using these commands in **either Bash or PowerShell**:
+Each tab/device creates a random Python session, with per-session revision and
+result state. Owner identity derives from the signed Next login cookie; tabs in
+one browser can share that login owner while retaining distinct session IDs.
+Signing out closes that owner's sessions. Sessions expire after 60 seconds
+without polling. Stopping one session does not stop another active shared viewer.
+Browser/OS camera hardware may limit simultaneous access to the same device.
 
-```text
-git clone https://github.com/smart-phset/phset-api.git
-git clone https://github.com/smart-phset/phset-client.git
-git clone https://github.com/smart-phset/phset-ai.git
-git clone https://github.com/smart-phset/smart-things.git
-git clone https://github.com/smart-phset/web-cam.git
-git -C phset-api switch main
-git -C phset-client switch feat/grow-room-monitoring
-git -C phset-ai switch feat/live-camera
-git -C smart-things switch main
-git -C web-cam switch main
-```
+Use HTTPS for camera access from phones; `http://localhost` is a desktop secure
+context exception, but `http://LAPTOP_LAN_IP` generally is not. The browser opens
+its own phone camera; it cannot discover a laptop USB camera via MediaDevices.
+Use a trusted HTTPS Next origin and proxy the worker privately. Do not expose raw
+Python/camera ports or send registry keys in JS.
 
-Follow each README's one-time dependency installation and private configuration
-steps. Use separate terminals for Spring, AI, optional bridge, and Next.js.
-Run commands from the corresponding clone's root, not from this frontend folder.
+## Tests and production
 
-1. Each session: connect the laptop and boards to a reachable network (no client isolation).
-2. Find the laptop LAN IP: Linux `ip route` or `ip -br addr`; PowerShell `ipconfig`.
-   Select the IPv4 of the Wi-Fi/Ethernet adapter on the ESP32 network, not a Docker/VPN adapter.
-3. Only if network/source changed: set regular ESP32 MQTT_HOST to that laptop IP,
-   and Wi-Fi credentials privately; compile/upload firmware using the
-   [regular ESP32 README](https://github.com/smart-phset/smart-things/blob/main/README.md).
-   For ESP32-CAM, follow the separate [web-cam README](https://github.com/smart-phset/web-cam/blob/main/README.md)
-   from the `web-cam` clone; it does not use MQTT_HOST. Flash the camera only when
-   firmware/Wi-Fi configuration changes, not every reboot.
-4. Each session: start Docker Engine or Docker Desktop; wait for `docker info` to work.
-5. In phset-api: `docker compose up -d postgres mosquitto`; verify PostgreSQL readiness.
-6. Once / on rotation: generate development keys as described in the API README;
-   set matching backend/client IoT and backend/AI ingestion keys. Each session load
-   the backend .env into the Spring terminal; Compose loading it alone is insufficient.
-7. Start Spring: Linux `./gradlew bootRun`; PowerShell `.\gradlew.bat bootRun`.
-8. Power the regular ESP32. If using ESP32-CAM, power it in normal boot mode too.
-9. Verify MQTT state in the hardware guide and GET Spring's device state with the
-   IoT header. Look for fresh timestamps. No installed soil sensor means no valid soil reading.
-10. Activate the AI venv and set its backend URL and matching ingestion key in that terminal.
-11. Choose **one** live source: laptop `--cam 0` or camera
-    `--source "http://YOUR_ESP32_CAM_IP:81/stream"`. Start the full command from the
-    AI README with `--serve --host 127.0.0.1 --port 8001`. Verify `/health` and
-    `/stream.mjpg`. Set frontend camera ID accordingly, noting the live metadata limitation above.
-12. In phset-client: start Next.js on port 3100. For real Upload Image also start
-    the optional photo bridge on 8000 and configure its key/URL once.
-13. Open monitoring `/`, `/climate`, `/history`, and `/scan`; sign in for controls.
-14. Verify fresh reported state and moving live video; with safe load wiring,
-    check commands and reported output changes. A command receipt is not physical
-    load feedback. Pump should auto-off around 10 seconds. Inspect saved AI
-    timestamps; GREY/unavailable never means healthy.
-
-Dependency installation and config copies are **once**, or when dependencies/config
-change. Docker services, Spring, Python and Next are **each session**. Stop app
-terminals with Ctrl+C; `docker compose stop` in phset-api stops containers while
-retaining data. Finish hardware testing with all loads OFF.
-
-| Service | Port | Purpose |
-|---|---|---|
-| Spring | 9090 | REST and detection storage |
-| PostgreSQL | 5432 | Database |
-| Mosquitto | 1883 | MQTT |
-| Mosquitto WS | 9001 | Configured WebSocket listener |
-| Python bridge (optional) | 8000 | Upload Image |
-| Python live | 8001 | Annotated MJPEG |
-| Next.js (team command) | 3100 | Web UI |
-| ESP32-CAM | 80 / 81 | Camera UI/capture / raw MJPEG |
-
-## Testing
-
-These commands work in Bash and PowerShell:
-
-```text
-npm run test
+```bash
+npm test
 npm run lint
+npm run build -- --webpack
 npm run typecheck
-npm run build
+npm start -- --hostname 127.0.0.1 --port 3000
+# Optional against an explicitly configured running frontend:
+npm run test:production
 git diff --check
 ```
 
-For a production smoke test after build: `npm run start -- --hostname 127.0.0.1 --port 3100`
-(stop the development server first). Manually test signed-in controls, guest
-read-only access, service-offline states, live stream and a real uploaded image.
+`test:production` requires its documented runtime environment; see
+[production deployment](docs/production-deployment.md) and
+`scripts/production-smoke.mjs`. The ordinary Node suite uses mocks; it does not
+verify physical cameras or loads. The release audit passed nine test files,
+lint, typecheck and the webpack production build on the normal host.
 
-## Common problems
+`next.config.ts` enables standalone output. The existing multistage Dockerfile
+uses Node 24.22.1, builds without credentials and runs as non-root with a health
+check. `compose.frontend.yaml` is a separate frontend-only project, requiring
+Compose >=2.30 for raw private env files; it publishes only `127.0.0.1:3100`,
+sets restart/resource/logging restrictions and preserves backend/Mosquitto.
+Set `SMARTPHSET_FRONTEND_IMAGE`, `SMARTPHSET_FRONTEND_ENV_FILE` and optionally
+`SMARTPHSET_FRONTEND_PORT` as documented in the production guide. Keep production
+secrets outside the checkout and out of build arguments/layers.
 
-- Old UI: verify the feature branch, stop the old Node server, restart the team
-  command, then hard refresh (Ctrl+Shift+R). Confirm the browser is on port 3100.
-- Port occupied on Linux: `ss -ltnp 'sport = :3100'`; stop the owning terminal or
-  `kill <PID>` after identifying it. On PowerShell:
+**Production limitation:** the current runtime validator and legacy feature flags
+do not validate or disable the new persistent camera-service configuration.
+Review private authenticated `SMARTPHSET_AI_SERVICE_URL` connectivity and route
+access before enabling new camera AI. AWS Next cannot reach the developer
+laptop's `127.0.0.1:8002`; container loopback is also separate from the host.
+A secure private worker deployment or authenticated private relay is required;
+none is provisioned by this documentation task. Legacy live and upload features
+remain disabled in the production example until their separate relay is accepted.
 
-  ```powershell
-  Get-NetTCPConnection -LocalPort 3100 -State Listen
-  # Replace 12345 with the OwningProcess shown above, after checking its identity.
-  Get-Process -Id 12345
-  Stop-Process -Id 12345
-  ```
+## Troubleshooting
 
-  `netstat -ano` is another way to inspect ports. Do not stop every Node process.
-- Monitoring 503: check Spring, SMARTPHSET_API_BASE_URL and matching IoT keys.
-  No fallback data is used for these pages. A 401 API response may mean no browser session.
-- Live offline: check Python's http://127.0.0.1:8001/health first, then the signed-in
-  Next proxy. Backend metadata and video are independent paths.
-- Stale/incorrect AI metadata: check camera IDs, Python publishing key and Spring
-  availability. See the explicit webcam-0 limitation for ESP32 live metadata above.
-- Upload shows demo data: configure BACKEND_URL, bridge mode and matching bridge key;
-  starting only live_camera.py does not enable real photo uploads.
-- Turbopack build fails with permission errors binding helper ports in a restricted
-  sandbox: rerun in a normal development terminal; do not claim that build passed.
+- 401: sign in again for expired cookies; then distinguish worker, registry, IoT and upload keys.
+- 404 shared source: compare exact Spring/Python IDs; old AWS JAR lacks the registry. Expired/wrong-owner sessions also return 404.
+- 403 registry on AWS: Nginx deliberately blocks unmatched routes; an image update alone cannot fix this.
+- Camera busy: close meeting apps/legacy OpenCV capture. Use the shared worker source if Python owns the USB camera.
+- Permission denied: browser/OS settings, trusted HTTPS on phones, correct selected device.
+- Worker unavailable/503: start `session_service.py`, verify Next's server-side URL/key and model loading.
+- 429: lower sampling/viewer load; Python serializes inference with no waiting queue.
+- Missing registry: configure matching API key and updated Spring origin. Browser-only inference can still work.
+- Stale history: browser sessions do not publish to Spring; shared publishing requires ingest URL/key and permitted reads.
+- Build subprocess errors in restricted environments: rerun on the normal host; do not weaken auth or change source to hide an environment failure.
 
-More detail: [monitoring integration](docs/phase9-integration.md),
-[UI guide](docs/user-guide.md), [legacy upload contract](docs/api-contract.md).
-
-## Git workflow
-
-Start with a clean worktree (`git status`). Update the branch named in Clone before
-creating your own feature branch. These commands work in Bash and PowerShell:
-
-```text
-git pull --ff-only
-git switch -c feat/my-change
-# Edit and run the checks above.
-git status
-git add README.md
-# Add other intended files explicitly; never add private configuration.
-git diff --cached
-git commit -m "Describe the change"
-git push -u origin feat/my-change
-```
-
-Open a Pull Request against the team's agreed integration branch. Do not push
-teammate changes directly to main. Never use `git push --force` unless the team
-explicitly agrees and understands why. If pull refuses, inspect local changes and
-coordinate; do not discard work with a hard reset.
-
-## Security notes
-
-Never commit `.env`, `.env.local`, private `config.h`, Wi-Fi passwords, API keys,
-DB passwords or auth secrets. Commit only safe example files. Inspect
-`git diff --cached` before each commit; do not force-add ignored files. If a secret
-was committed, rotate it and coordinate cleanup; deleting it does not revoke it.
+See [camera manager](docs/camera-manager.md), [developer guide](docs/developer-guide.md),
+[production acceptance](docs/production-acceptance.md) and the workspace system
+README when using all five checkouts together. Some older documents describe
+legacy :8001 behavior; this README and the dynamic-camera guide describe :8002.

@@ -1,10 +1,11 @@
-import { GUEST, accountsEnabled, allowGuest, isHttps, safeNext, sessionCookie, sign } from "@/lib/auth";
+import { GUEST, accountsEnabled, allowGuest, isHttps, safeNext, sessionCookie, sign, sameOrigin } from "@/lib/auth";
 
 // Relative Location headers keep the browser on whatever host it used (localhost, LAN address or the live domain).
 const go = (path: string, cookie?: string) =>
   new Response(null, { status: 303, headers: cookie ? { Location: path, "Set-Cookie": cookie } : { Location: path } });
 
 export async function POST(req: Request) {
+  if (!sameOrigin(req)) return Response.json({ error: "forbidden" }, { status: 403 });
   let form: FormData;
   try {
     form = await req.formData();
