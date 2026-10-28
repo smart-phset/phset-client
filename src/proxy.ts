@@ -16,5 +16,5 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   // Everything except the sign-in page, its API, Next.js internals and public files.
-  matcher: ["/((?!signin|api/auth/|_next/|brand/|mock/|photos/|stitch/|fonts/|favicon|robots).*)"],
+  matcher: ["/((?!signin|api/auth/|api/healthz$|_next/|brand/|mock/|photos/|stitch/|fonts/|favicon|robots).*)"],
 };

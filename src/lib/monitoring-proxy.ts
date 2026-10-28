@@ -1,3 +1,4 @@
+import { sameOrigin } from "./request-origin.ts";
 import { ACTUATORS, MonitoringError, parseDetection, parseDeviceState, parseReceipt, record } from "./monitoring.ts";
 
 export interface MonitoringConfig {
@@ -89,7 +90,7 @@ export function monitoringHandlers(config: MonitoringConfig,
     command: (req: Request, actuator: string) => safely(async () => {
       await authorized(true);
       // SameSite cookies plus strict Origin/content type defend browser actuation.
-      if (req.headers.get("origin") !== new URL(req.url).origin)
+      if (!req.headers.get("origin") || !sameOrigin(req))
         throw new MonitoringError("forbidden", "Commands must come from this website.", 403);
       if (req.headers.get("content-type")?.split(";")[0].trim() !== "application/json")
         throw new MonitoringError("invalid_request", "Send a JSON actuator command.", 400);

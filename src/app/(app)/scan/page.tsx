@@ -1,6 +1,6 @@
 "use client";
 
-import { LiveDetectionPanel } from "@/components/LiveDetectionPanel";
+import { CameraManager } from "@/components/CameraManager";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
@@ -24,7 +24,7 @@ async function shrink(file: File, max = 1280): Promise<Blob> {
   const c = document.createElement("canvas");
   c.width = Math.round(bmp.width * k);
   c.height = Math.round(bmp.height * k);
-  c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
+  try { c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height); } finally { bmp.close(); }
   return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error("resize failed"))), "image/jpeg", 0.8));
 }
 
@@ -52,7 +52,7 @@ export default function ScanPage() {
       const url = URL.createObjectURL(blob);
       setPreview(url);
       const started = Date.now();
-      const r = await fetch(`/api/images?camera=phone-1&room=${room.id}`, { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: blob });
+      const r = await fetch(`/api/images?camera=phone-1&room=${room.id}`, { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: blob, signal: AbortSignal.timeout(35000) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.message || t("The AI could not check this photo."));
       await new Promise((ok) => setTimeout(ok, Math.max(0, 1200 - (Date.now() - started))));
@@ -104,7 +104,7 @@ export default function ScanPage() {
         <button type="button" aria-pressed={mode === "live"} onClick={() => setMode("live")} className={`rounded-lg px-5 py-3 ${mode === "live" ? "bg-primary text-white" : "bg-surface-container-low"}`}>Live Detection</button>
         <button type="button" aria-pressed={mode === "upload"} onClick={() => setMode("upload")} className={`rounded-lg px-5 py-3 ${mode === "upload" ? "bg-primary text-white" : "bg-surface-container-low"}`}>Upload Image</button>
       </div>
-      {mode === "live" ? <LiveDetectionPanel /> : <>
+      {mode === "live" ? <CameraManager /> : <>
       {!live && (
         <div className="flex items-start gap-space-sm bg-surface-container-low rounded-xl p-space-md">
           <span aria-hidden="true" className="material-symbols-outlined text-[20px] text-primary shrink-0">info</span>
@@ -211,7 +211,7 @@ export default function ScanPage() {
         <div className="flex items-center justify-between mb-space-md">
           <div className="flex items-center gap-space-xs">
             <span aria-hidden="true" className="material-symbols-outlined text-[20px] text-secondary">history</span>
-            <h3 className="font-headline-sm text-headline-sm text-on-surface">{t("Recent scans")} · {t(room.name)}</h3>
+            <h3 className="font-headline-sm text-headline-sm text-on-surface">{t("Recent scans")} · Upload previews and examples · {t(room.name)}</h3>
           </div>
           <Link href="/history" className="font-label-md text-label-md text-primary font-semibold hover:underline">{t("All scans")}</Link>
         </div>

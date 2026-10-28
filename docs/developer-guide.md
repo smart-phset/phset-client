@@ -51,7 +51,7 @@ src/
       setup/page.tsx        camera setup guide (server component)
     api/
       auth/signin           POST: login or guest -> session cookie
-      auth/signout          GET: clear session -> /signin
+      auth/signout          POST: clear session -> /signin
       images                POST: photo -> AI (laptop) or {demo:true}
       readings/latest       GET ?device=: latest reading or {demo:true}
       health                GET: is the laptop reachable
@@ -112,7 +112,7 @@ npm run start      # serve the production build
 4. **Return page:** after login you go back to `next`. `safeNext()` only allows plain same-site paths; it blocks
    `//host`, `/\host`, schemes and control characters, and checks again after URL normalisation (so `/.//host`
    is blocked too).
-5. **Sign out:** `/api/auth/signout` clears the cookie and returns you to `/signin`.
+5. **Sign out:** POST `/api/auth/signout` clears the cookie and returns you to `/signin`.
 
 Before connecting real hardware, either set a team password and `ALLOW_GUEST=false`, or decide what guests may do.
 Today a guest can use everything, including manual control.

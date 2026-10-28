@@ -78,9 +78,9 @@ export function Sidebar({ user }: { user: SessionUser }) {
               <span className="font-label-sm text-label-sm text-on-surface-variant truncate">{user.guest ? t("No account") : t("Team account")}</span>
             </div>
           </div>
-          <a href="/api/auth/signout" aria-label={user.guest ? t("Sign in") : t("Sign out")} title={user.guest ? t("Sign in") : t("Sign out")} className="material-symbols-outlined text-outline text-[18px] hover:text-on-surface">
+          <form action="/api/auth/signout" method="post"><button type="submit" aria-label={user.guest ? t("Sign in") : t("Sign out")} title={user.guest ? t("Sign in") : t("Sign out")} className="material-symbols-outlined text-outline text-[18px] hover:text-on-surface">
             {user.guest ? "login" : "logout"}
-          </a>
+          </button></form>
         </div>
       </div>
     </aside>
@@ -128,7 +128,7 @@ function RoomPicker() {
 
 export function Topbar({ user }: { user: SessionUser }) {
   const path = usePathname();
-  const monitoring = path === "/" || path === "/climate" || path === "/history" || path === "/scan" || path === "/alerts";
+  const monitoring = path === "/" || path === "/climate" || path === "/history" || path === "/scan" || path === "/alerts" || path === "/status";
   const { updatedAgo, reading, live } = useStore();
   const { lang, setLang } = useLang();
   const t = useT();

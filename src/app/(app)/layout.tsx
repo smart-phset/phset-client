@@ -1,3 +1,4 @@
+import { CameraLogoutBridge } from "@/components/CameraLogoutBridge";
 import { redirect } from "next/navigation";
 import { AIStoreProvider } from "@/store/StoreProvider";
 import { MobileNav, Sidebar, Topbar } from "@/components/Shell";
@@ -11,6 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <AIStoreProvider>
       <StoreProvider>
+        <CameraLogoutBridge />
         <Sidebar user={user} />
         <div className="lg:pl-60">
           <Topbar user={user} />

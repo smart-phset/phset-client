@@ -35,6 +35,12 @@ export default async function SettingsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-md items-start">
         <div className="lg:col-span-7 flex flex-col gap-space-md">
           <section className={card}>
+            <h2 className="font-semibold">Camera preferences</h2>
+            <p>Each tab selects its own camera in AI Scan. Press Start to grant camera access. Local preview never uploads video; shared grow-room alerts are independent.</p>
+            <Link href="/scan" className="text-primary underline">Open Camera Manager</Link>
+          </section>
+
+          <section className={card}>
             <Head icon="translate" title={t("Language")} sub={t("Interface language")} />
             <LangChoice />
             <p className="font-label-sm text-label-sm text-on-surface-variant">{t("Khmer text is a first draft and is being checked by our team. Some screens still show English.")}</p>
@@ -56,6 +62,7 @@ export default async function SettingsPage() {
                 <span className="hidden sm:inline font-label-sm text-label-sm px-2 py-1 rounded bg-surface-container-lowest text-on-surface-variant">{t(act)}</span>
               </div>
             ))}
+            <p className="font-label-sm text-label-sm text-on-surface-variant">Historical public-dataset figures below have not been revalidated for this release and do not establish accuracy on live farm footage.</p>
             <p className="font-label-sm text-label-sm text-on-surface-variant">
               {t("Measured on 752 public validation photos: at 40% no mould photo was missed, but 38% of healthy photos were flagged. At 80%, 10% of healthy photos were flagged and 14 of 373 mould photos were missed. That is why there are two levels.")}
             </p>
@@ -100,13 +107,13 @@ export default async function SettingsPage() {
               </div>
             </div>
             {user.guest ? (
-              <a href="/api/auth/signout" className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-semibold">
+              <form action="/api/auth/signout" method="post"><button type="submit" className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-semibold">
                 <span aria-hidden="true" className="material-symbols-outlined text-[18px]">login</span>{t("Sign in with an account")}
-              </a>
+              </button></form>
             ) : (
-              <a href="/api/auth/signout" className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-error-container text-on-error-container font-label-md text-label-md font-semibold">
+              <form action="/api/auth/signout" method="post"><button type="submit" className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-error-container text-on-error-container font-label-md text-label-md font-semibold">
                 <span aria-hidden="true" className="material-symbols-outlined text-[18px]">logout</span>{t("Sign out")}
-              </a>
+              </button></form>
             )}
           </section>
 

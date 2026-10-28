@@ -1,0 +1,47 @@
+# Standalone frontend project: does not reference or alter the backend/MQTT stack.
+name: smartphset-frontend
+services:
+  frontend:
+    image: ${SMARTPHSET_FRONTEND_IMAGE:?Set an immutable tested frontend image tag or digest}
+    pull_policy: never
+    env_file:
+      # Compose >= 2.30; raw preserves literal $ in passwords/secrets.
+      - path: ${SMARTPHSET_FRONTEND_ENV_FILE:?Set the absolute private runtime env file path}
+        format: raw
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      HOSTNAME: 0.0.0.0
+      NEXT_TELEMETRY_DISABLED: '1'
+      NODE_OPTIONS: --max-old-space-size=512
+    ports:
+      - '127.0.0.1:${SMARTPHSET_FRONTEND_PORT:-3100}:3000'
+    init: true
+    restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    read_only: true
+    # Standalone Next may write image/ISR cache; neither location stores raw video.
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+      - /app/.next/cache:rw,noexec,nosuid,size=64m,uid=1001,gid=1001,mode=0750
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    cpus: '1.0'
+    pids_limit: 128
+    ulimits:
+      nofile:
+        soft: 4096
+        hard: 4096
+    healthcheck:
+      test: [CMD, node, scripts/container-healthcheck.mjs]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'

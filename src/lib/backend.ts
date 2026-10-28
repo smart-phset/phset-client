@@ -14,6 +14,8 @@ export function demo() {
   return Response.json({ demo: true });
 }
 
-export function unreachable(e: unknown) {
-  return Response.json({ error: "backend_unreachable", message: "Can't reach the grow box server. Check the laptop and the tunnel." , detail: String(e) }, { status: 503 });
+export function unreachable(_e: unknown) {
+  // Never forward transport exception details or internal URLs to a browser.
+  void _e;
+  return Response.json({ error: "backend_unreachable", message: "Can't reach the grow box server. Check the laptop and the tunnel." }, { status: 503 });
 }

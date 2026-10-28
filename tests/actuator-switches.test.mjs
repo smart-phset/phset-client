@@ -229,8 +229,8 @@ for (const permission of [{ teamAccount: false, canControl: true }, { teamAccoun
     const h = dashboardHarness(t, permission);
     await h.initialPoll();
     assert.match(renderCard(h.card('fan')), /Guest access is read-only/);
-    const signIn = find(h.render(), node => node.props?.href === '/api/auth/signout');
-    assert.equal(signIn.props.prefetch, false); // a read-only banner must never prefetch sign-out
+    const signIn = find(h.render(), node => node.type === 'form' && node.props?.action === '/api/auth/signout');
+    assert.equal(signIn.props.method, 'post'); // Account switching requires explicit form submission.
     h.card('fan').onChange(true); h.card('fan').onChange(false);
     assert.equal(h.posts.length, 0);
   });

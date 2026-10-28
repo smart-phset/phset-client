@@ -231,7 +231,7 @@ test('actual toast has an accessible close button, live role and schedules seven
 });
 test('configured ESP32 camera routes through existing authenticated proxy without hardcoded webcam or browser URL input', async () => {
   const source = readFileSync(path.join(root, 'src/app/api/ai/live/detection/route.ts'), 'utf8');
-  assert.match(source, /monitoringApi\(\)\.detection\(\)/);
+  assert.match(source, /monitoringApi\(camera\)\.detection\(\)/);
   assert.doesNotMatch(source, /webcam-0|searchParams/);
   const api = monitoringHandlers({ baseUrl: 'http://spring.test', cameraId: 'esp32-cam', deviceId: '', iotKey: 'secret' },
     async () => ({ guest: true }), async url => {
@@ -256,7 +256,7 @@ test('badge maps backend AMBER/GREY to YELLOW/UNKNOWN and metadata errors never 
     assert.match(html, /src="\/api\/ai\/live\/stream"/);
   }
 });
-test('one authenticated provider owns watcher/toasts; panels never poll metadata or persist alerts', () => {
+test('one authenticated provider owns global watcher/toasts; panels use query hooks without persisting alerts', () => {
   const read = p => readFileSync(path.join(root, p), 'utf8');
   const layout = read('src/app/(app)/layout.tsx');
   assert.match(layout, /if \(!user\) redirect\("\/signin"\)/);
@@ -266,7 +266,7 @@ test('one authenticated provider owns watcher/toasts; panels never poll metadata
   assert.equal((provider.match(/<AIToastContainer/g) ?? []).length, 1);
   for (const file of ['src/components/LiveDetectionPanel.tsx', 'src/components/monitoring/GrowRoomDashboard.tsx']) {
     assert.doesNotMatch(read(file), /fetch\("\/api\/ai\/live\/detection|browserJson.*\/api\/monitoring\/detection/);
-    assert.match(read(file), /useLatestAIDetectionState/);
+    assert.match(read(file), /useLatestAIDetectionState|useLiveCameraDetection/);
   }
   assert.doesNotMatch(read('src/app/layout.tsx'), /AIAlertWatcher|AIStoreProvider/);
   for (const file of ['src/store/store.ts', 'src/features/ai-alerts/aiAlertSlice.ts', 'src/features/ai-alerts/AIToastContainer.tsx'])
@@ -356,4 +356,53 @@ test('actual Redux provider renders an initial YELLOW toast above shell content 
   const center = renderToStaticMarkup(React.createElement(Provider, { store }, React.createElement(AINotificationCenter)));
   for (const value of ['AI notifications', '1 unread', 'Possible contamination', '70%', 'esp32-cam', 'Mark all read', 'Clear notifications'])
     assert.ok(center.includes(value), value);
+});
+
+test('selected Python camera metadata has isolated cache entries and requests the selected physical identity', async t => {
+  const NativeRequest = globalThis.Request;
+  t.mock.method(globalThis, 'Request', class extends NativeRequest {
+    constructor(input, init) { super(typeof input === 'string' ? new URL(input, 'http://frontend.test') : input, init); }
+  });
+  const requested = [];
+  let wrongSource = false;
+  t.mock.method(globalThis, 'fetch', async request => {
+    const camera = new URL(request.url).searchParams.get('camera');
+    requested.push(camera);
+    const actual = wrongSource && camera === 'webcam-0' ? 'esp32-cam' : camera;
+    return Response.json({ cameraId: actual, detection: detection('GREEN', 0, actual) });
+  });
+  const { aiDetectionApi: api } = load('src/features/ai-alerts/aiDetectionApi.ts');
+  const store = configureStore({ reducer: { [api.reducerPath]: api.reducer }, middleware: g => g().concat(api.middleware) });
+  const one = store.dispatch(api.endpoints.getLatestAIDetection.initiate('webcam-0'));
+  const two = store.dispatch(api.endpoints.getLatestAIDetection.initiate('esp32-cam'));
+  try {
+    assert.equal((await one.unwrap()).detection.camera_id, 'webcam-0');
+    assert.equal((await two.unwrap()).detection.camera_id, 'esp32-cam');
+    assert.deepEqual(requested.sort(), ['esp32-cam', 'webcam-0']);
+    assert.equal(api.endpoints.getLatestAIDetection.select('webcam-0')(store.getState()).data.cameraId, 'webcam-0');
+    assert.equal(api.endpoints.getLatestAIDetection.select('esp32-cam')(store.getState()).data.cameraId, 'esp32-cam');
+    wrongSource = true;
+    t.mock.method(console, 'error', () => {}); // RTK reports the deliberately invalid response.
+    await assert.rejects(one.refetch().unwrap());
+    assert.equal(api.endpoints.getLatestAIDetection.select('webcam-0')(store.getState()).isError, true);
+    assert.equal(api.endpoints.getLatestAIDetection.select('esp32-cam')(store.getState()).isError, false);
+  } finally { one.unsubscribe(); two.unsubscribe(); store.dispatch(api.util.resetApiState()); }
+});
+
+test('live camera hook reuses a matching global watcher and polls a different source without changing alerts', () => {
+  const global = { data: { cameraId: 'esp32-cam' } }, selected = { data: { cameraId: 'webcam-0' } }, calls = [];
+  const { useLiveCameraDetection } = load('src/features/ai-alerts/aiDetectionApi.ts', {
+    '@reduxjs/toolkit/query/react': { fetchBaseQuery: () => ({}), createApi: () => ({
+      endpoints: { getLatestAIDetection: { useQueryState: () => global } },
+      useGetLatestAIDetectionQuery: (arg, options) => { calls.push({ arg, ...options }); return selected; },
+    }) },
+  });
+  assert.equal(useLiveCameraDetection('esp32-cam'), global);
+  assert.equal(calls[0].skip, true);
+  assert.equal(useLiveCameraDetection('webcam-0'), selected);
+  assert.equal(calls[1].arg, 'webcam-0');
+  assert.equal(calls[1].skip, false);
+  assert.equal(calls[1].pollingInterval, 2000);
+  assert.equal(calls[1].skipPollingIfUnfocused, true);
+  assert.equal(global.data.cameraId, 'esp32-cam');
 });

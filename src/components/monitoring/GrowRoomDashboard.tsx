@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useLatestAIDetectionState } from "@/features/ai-alerts/aiDetectionApi";
 import { AISeverityBadge } from "@/features/ai-alerts/AISeverityBadge";
 import { isFreshDetection } from "@/features/ai-alerts/aiAlertTransitions";
-import Link from "next/link";
 import { useT } from "@/lib/i18n";
 import { ActuatorCard } from "./ActuatorSwitch";
 import { actuatorControl, expireActuatorCommand } from "@/lib/actuator-controls";
@@ -148,7 +147,7 @@ export function GrowRoomDashboard({ deviceId, teamAccount }: { deviceId: string;
       <section aria-labelledby="equipment-title">
         <h2 id="equipment-title" className="text-headline-sm font-headline-sm mb-3">{t("Equipment")}</h2>
         <p className="text-on-surface-variant mb-4">{t("States are reported by the ESP32; they do not measure physical load operation.")}</p>
-        {!canControl && <p className="mb-4 rounded-lg bg-surface-container-low p-3">{t("Guest access is read-only. Sign in with a team account to control equipment.")} <Link href="/api/auth/signout" prefetch={false} className="text-primary underline">{t("Sign in")}</Link></p>}
+        {!canControl && <div className="mb-4 rounded-lg bg-surface-container-low p-3">{t("Guest access is read-only. Sign in with a team account to control equipment.")} <form action="/api/auth/signout" method="post" className="inline"><button type="submit" className="text-primary underline">{t("Sign in")}</button></form></div>}
         <div className="grid md:grid-cols-3 gap-4">
           {ACTUATORS.map(actuator => <ActuatorCard key={actuator} actuator={actuator}
             value={state?.[actuator]} health={health} canControl={canControl} command={commands[actuator]}

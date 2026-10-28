@@ -19,14 +19,14 @@ function component(path, mocks = {}) {
 }
 const { AISeverityBadge } = component('../src/features/ai-alerts/AISeverityBadge.tsx');
 const { LiveDetectionView, LiveDetectionPanel } = component('../src/components/LiveDetectionPanel.tsx', {
-  '@/features/ai-alerts/aiDetectionApi': { useLatestAIDetectionState: () => ({}) },
+  '@/features/ai-alerts/aiDetectionApi': { useLiveCameraDetection: () => ({}) },
   '@/features/ai-alerts/AISeverityBadge': { AISeverityBadge },
   '@/features/ai-alerts/aiAlertTransitions': { isFreshDetection: () => true },
 });
 const detection = { id: 'one', camera_id: 'webcam-0', captured_at: '2026-10-25T00:00:00Z', created_at: '2026-10-25T00:00:00Z',
   verdict: 'contamination_suspected', message: 'Possible contamination', severity: 'RED', n_healthy: 2, n_contaminated: 1, max_conf: .92, max_contaminated_conf: .92 };
 const view = overrides => renderToStaticMarkup(React.createElement(LiveDetectionView, {
-  health: { status: 'ok', streaming: true }, detection, metadataError: false, streamError: false, streamVersion: 0, onStreamError() {}, onRetry() {}, ...overrides,
+  health: { status: 'ok', streaming: true }, detection, metadataError: false, streamError: false, streamVersion: 0, streamLoaded: true, onStreamError() {}, onRetry() {}, ...overrides,
 }));
 
 test('live view renders internal continuous stream, verdict, counts and timestamp', () => {
@@ -52,7 +52,7 @@ test('Mushroom Health defaults to live and still renders upload controls in uplo
       react: { ...React, useState: initial => React.useState(initial === 'live' ? mode : initial) },
       'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
       'next/navigation': { useRouter: () => ({ push() {} }) },
-      '@/components/LiveDetectionPanel': { LiveDetectionPanel },
+      '@/components/CameraManager': { CameraManager: LiveDetectionPanel },
       '@/components/ScanPhoto': { ScanPhoto: () => null },
       '@/lib/data': {}, '@/lib/i18n': { useT: () => text => text },
       '@/lib/store': { useStore: () => ({ scans: [], rooms: [room], room, live: false, setRoom() {} }) },
@@ -89,7 +89,7 @@ test('proxy authenticates, handles offline, sanitizes health and upstream errors
     const response = await liveHandlers('http://ai.test', session, transport)(request(), true);
     assert.equal(response.status, 503); assert.ok(!(await response.text()).includes('private-secret'));
   }
-  const response = await liveHandlers('http://ai.test', session, async () => Response.json({ status: 'ok', streaming: true, secret: 'private-secret' }), 'esp32-cam')(request(), false);
+  const response = await liveHandlers('http://ai.test', session, async () => Response.json({ status: 'ok', camera: 'esp32-cam', streaming: true, secret: 'private-secret' }), 'esp32-cam')(request(), false);
   assert.deepEqual(await response.json(), { status: 'ok', camera: 'esp32-cam', streaming: true });
 });
 test('live metadata uses webcam-0 with existing Spring contract and no ingestion credentials', async () => {
@@ -105,7 +105,7 @@ test('client sources and available browser chunks contain no live server config 
   const root = new URL('../.next/static/', import.meta.url);
   let files = [];
   try { files = readdirSync(root, { recursive: true }).filter(p => p.endsWith('.js')); } catch { /* build may not exist yet */ }
-  for (const file of files) assert.doesNotMatch(readFileSync(new URL(file, root), 'utf8'), /SMARTPHSET_AI_LIVE_BASE_URL|SMARTPHSET_AI_INGEST_KEY|NEXT_PUBLIC_AI_INGEST_KEY/);
+  for (const file of files) assert.doesNotMatch(readFileSync(new URL(file, root), 'utf8'), /SMARTPHSET_AI_LIVE_BASE_URL|SMARTPHSET_AI_INGEST_KEY|SMARTPHSET_AI_RELAY_TOKEN|NEXT_PUBLIC_AI_INGEST_KEY/);
 });
 
 test('/scan actual mode buttons switch from default live to upload and back', () => {
@@ -120,7 +120,7 @@ test('/scan actual mode buttons switch from default live to upload and back', ()
     } },
     'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
     'next/navigation': { useRouter: () => ({ push() {} }) },
-    '@/components/LiveDetectionPanel': { LiveDetectionPanel },
+    '@/components/CameraManager': { CameraManager: LiveDetectionPanel },
     '@/components/ScanPhoto': { ScanPhoto: () => null },
     '@/lib/data': {}, '@/lib/i18n': { useT: () => text => text },
     '@/lib/store': { useStore: () => ({ scans: [], rooms: [room], room, live: false, setRoom() {} }) },
@@ -169,5 +169,18 @@ test('scan and real notifications suppress prototype banners for guests and memb
       assert.equal(html.includes('Demo data'), false);
       assert.equal(html.includes('Demo · updated'), false);
     }
+  }
+});
+
+test('actual shared panel hides metadata from a different camera and accepts matching metadata', () => {
+  for (const camera of ['esp32-cam', 'webcam-0']) {
+    const { LiveDetectionPanel: Panel } = component('../src/components/LiveDetectionPanel.tsx', {
+      react: { ...React, useState: initial => React.useState(initial?.status === 'starting' ? { status: 'ok', streaming: true, camera } : initial) },
+      '@/features/ai-alerts/aiDetectionApi': { useLiveCameraDetection: () => ({ data: { cameraId: detection.camera_id, detection } }) },
+      '@/features/ai-alerts/AISeverityBadge': { AISeverityBadge },
+      '@/features/ai-alerts/aiAlertTransitions': { isFreshDetection: () => true },
+    });
+    const html = renderToStaticMarkup(React.createElement(Panel));
+    assert.equal(html.includes('Possible contamination'), camera === detection.camera_id);
   }
 });

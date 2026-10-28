@@ -1,0 +1,97 @@
+# EXAMPLE ONLY. Include in nginx's http context after operator review.
+# Requires host Nginx, ngx_http_ssl_module, limit_req/limit_conn and valid certificates.
+# Do not apply to existing API/MQTT virtual hosts.
+upstream smartphset_frontend {
+    server 127.0.0.1:3100;
+    keepalive 16;
+}
+limit_req_zone $binary_remote_addr zone=smartphset_login:1m rate=5r/m;
+limit_req_zone $binary_remote_addr zone=smartphset_requests:1m rate=20r/s;
+limit_conn_zone $binary_remote_addr zone=smartphset_stream_ip:1m;
+limit_conn_zone $server_name zone=smartphset_stream_total:1m;
+
+server {
+    listen 80;
+    server_name phset.ratanak.me;
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/letsencrypt;
+        try_files $uri =404;
+    }
+    location / { return 301 https://phset.ratanak.me$request_uri; }
+}
+
+server {
+    listen 443 ssl;
+    server_name phset.ratanak.me;
+    if ($host != phset.ratanak.me) { return 444; }
+
+    # Obtain/renew a certificate through your approved ACME process BEFORE enabling.
+    ssl_certificate /etc/letsencrypt/live/phset.ratanak.me/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/phset.ratanak.me/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:smartphset_tls:1m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+    server_tokens off;
+
+    add_header Strict-Transport-Security "max-age=86400" always;
+    add_header Permissions-Policy "camera=(self), microphone=(), geolocation=()" always;
+    client_max_body_size 2m;
+    client_header_timeout 10s;
+    client_body_timeout 15s;
+    keepalive_timeout 30s;
+    send_timeout 15s;
+    limit_req_status 429;
+    limit_conn_status 429;
+
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Port $server_port;
+    # Single ingress: overwrite client-supplied forwarding headers.
+    # Cloudflare requires an independently reviewed trusted-real-IP setup first.
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Forwarded "";
+    # Origin, Cookie and Set-Cookie are preserved. Never strip actuator Origin.
+    proxy_cookie_flags sp_session secure httponly samesite=lax;
+    proxy_connect_timeout 5s;
+    proxy_send_timeout 15s;
+    proxy_read_timeout 60s;
+    proxy_cache off;
+    # App Router can stream HTML/RSC as well as video.
+    proxy_buffering off;
+    proxy_request_buffering on;
+    proxy_next_upstream off; # Never replay a command on another upstream.
+
+    location = /api/healthz {
+        access_log off;
+        limit_req zone=smartphset_requests burst=40 nodelay;
+        proxy_pass http://smartphset_frontend;
+    }
+    location = /api/auth/signin {
+        client_max_body_size 8k;
+        limit_req zone=smartphset_login burst=5 nodelay;
+        proxy_pass http://smartphset_frontend;
+    }
+    location = /api/ai/live/stream {
+        limit_except GET { deny all; }
+        limit_conn smartphset_stream_ip 4;
+        limit_conn smartphset_stream_total 16;
+        limit_req zone=smartphset_requests burst=10 nodelay;
+        proxy_request_buffering off;
+        proxy_read_timeout 30s; # Idle between reads, not a total stream duration.
+        proxy_ignore_client_abort off;
+        gzip off;
+        proxy_pass http://smartphset_frontend;
+    }
+    location /api/ {
+        limit_req zone=smartphset_requests burst=40 nodelay;
+        proxy_pass http://smartphset_frontend;
+    }
+    location / {
+        proxy_pass http://smartphset_frontend;
+    }
+}

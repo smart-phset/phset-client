@@ -16,3 +16,7 @@
 
 **The AI** (`bridge.py`, the trained model, its API, model card and retraining guide) lives in the separate
 [SmartPhset-AI](https://github.com/menghoutishere-code/SmartPhset-AI) repo.
+
+## Backend release preparation
+
+The API repository contains the current [AWS redeployment runbook](https://github.com/smart-phset/phset-api/blob/main/docs/aws-redeployment.md). It covers the undeployed camera registry, exact EC2 baseline, candidate validation and rollback; that link becomes available after the prepared documentation is committed and pushed. The sibling workspace root README contains local full-system startup instructions.
